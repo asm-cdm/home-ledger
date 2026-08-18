@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASM Home Ledger</title>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-light: #3b82f6;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --border: #cbd5e1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        header .sub-header {
+            font-size: 0.75rem;
+            opacity: 0.9;
+            margin-top: 2px;
+        }
+
+        .container {
+            flex: 1;
+            max-width: 850px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 1rem;
+            padding-bottom: 90px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+            color: #475569;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--primary-light);
+        }
+
+        .input-row {
+            display: flex;
+            gap: 0.5rem;
+            position: relative;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 1rem;
+            background: #f1f5f9;
+            padding: 0.75rem;
+            border-radius: 6px;
+            flex-wrap: wrap;
+        }
+
+        .filter-row label {
+            margin-bottom: 0;
+            white-space: nowrap;
+        }
+
+        .filter-row select, .filter-row input {
+            width: auto;
+            min-width: 110px;
+        }
+
+        /* CUSTOM SEARCHABLE DROPDOWN STYLES */
+        .custom-dropdown-container {
+            position: relative;
+            flex: 1;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            margin-top: 4px;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            padding: 0.6rem 0.8rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-item:hover, .dropdown-item.selected {
+            background-color: #eff6ff;
+            color: var(--primary);
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.65rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            font-size: 0.9rem;
+            transition: opacity 0.2s;
+        }
+
+        .btn:active {
+            opacity: 0.85;
+        }
+
+        .btn-secondary {
+            background-color: #64748b;
+        }
+
+        .btn-success {
+            background-color: var(--success);
+        }
+
+        .btn-add-item {
+            width: auto;
+            padding: 0.6rem 0.9rem;
+            white-space: nowrap;
+            background-color: #0d9488;
+        }
+
+        .btn-danger {
+            background-color: var(--danger);
+        }
+
+        .btn-reset {
+            background-color: #b91c1c;
+            color: #ffffff;
+            font-size: 0.8rem;
+            padding: 0.4rem 0.8rem;
+            width: auto;
+            border-radius: 6px;
+        }
+
+        .btn-sm {
+            padding: 0.35rem 0.7rem;
+            font-size: 0.8rem;
+            width: auto;
+        }
+
+        .btn-group-responsive {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .view-section {
+            display: none;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 500px;
+            padding: 1.25rem;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 0.6rem 0.4rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: #f1f5f9;
+            color: #334155;
+        }
+
+        .tag-expense {
+            color: var(--danger);
+            font-weight: 600;
+        }
+
+        .tag-receipt {
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .summary-box {
+            background: #f1f5f9;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.4rem 0;
+            font-size: 1rem;
+        }
+
+        .mode-breakdown-box, .cat-breakdown-box {
+            background: #ffffff;
+            border: 1px dashed var(--border);
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-top: 0.75rem;
+        }
+
+        .mode-breakdown-title, .cat-breakdown-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #475569;
+            margin-bottom: 0.4rem;
+            text-transform: uppercase;
+        }
+
+        .mode-item, .cat-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            padding: 0.25rem 0;
+            border-bottom: 1px dotted #e2e8f0;
+        }
+
+        .mode-item:last-child, .cat-item:last-child {
+            border-bottom: none;
+        }
+
+        .tools-box {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .nav-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: var(--card-bg);
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-around;
+            padding: 0.5rem 0;
+            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
+            z-index: 900;
+        }
+
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 0.4rem;
+            background: none;
+            border: none;
+            color: #64748b;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        footer {
+            background-color: #0f172a;
+            color: #94a3b8;
+            text-align: center;
+            padding: 0.8rem 0.5rem;
+            font-size: 0.75rem;
+            margin-bottom: 50px;
+        }
+
+        footer div {
+            margin-bottom: 3px;
+        }
+
+        /* PRINT MEDIA STYLES - REMOVES BROWSER HEADER & FOOTER LINES */
+        @page {
+            size: auto;
+            margin: 0; /* REMOVES DEFAULT BROWSER HEADERS & FOOTERS */
+        }
+
+        @media print {
+            body {
+                padding: 15mm 10mm 15mm 10mm;
+                background-color: #ffffff;
+            }
+
+            header, .nav-bar, footer, .btn, .no-print, .tools-box, .filter-row {
+                display: none !important;
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 0;
+                margin: 0;
+            }
+
+            .card {
+                border: none;
+                box-shadow: none;
+                padding: 0;
+                margin: 0;
+            }
+
+            .view-section {
+                display: block !important;
+            }
+
+            #viewSection, #modifySection, #createSection, #backupSection {
+                display: none !important;
+            }
+
+            #pdfViewSection {
+                display: block !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Home Ledger</h1>
+        <div class="sub-header">Powered by A.S.M Consultancy Services</div>
+    </header>
+
+    <div class="container">
+
+        <!-- CREATE SECTION -->
+        <section id="createSection" class="view-section active card">
+            <div class="card-title">
+                <span>New Entry</span>
+                <button type="button" class="btn btn-reset" onclick="openResetModal()">🔄 Reset All Data</button>
+            </div>
+            
+            <form id="ledgerForm">
+                <div class="form-group">
+                    <label for="entryDate">Date</label>
+                    <input type="date" id="entryDate" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="entryType">Entry Type</label>
+                    <select id="entryType" onchange="handleTypeChange()">
+                        <option value="Expense">Expense</option>
+                        <option value="Receipt">Receipt (Income)</option>
+                    </select>
+                </div>
+
+                <!-- SEARCHABLE DROPDOWN FIELD -->
+                <div class="form-group">
+                    <label for="itemSearchInput" id="itemLabel">Expense Category</label>
+                    <div class="input-row">
+                        <div class="custom-dropdown-container">
+                            <input type="text" id="itemSearchInput" placeholder="Type to search category..." autocomplete="off" required>
+                            <div id="dropdownMenu" class="dropdown-menu"></div>
+                        </div>
+                        <button type="button" class="btn btn-add-item" onclick="openPreDataModal()">+ Add / Edit</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="paymentMode">Payment Mode</label>
+                    <select id="paymentMode" onchange="autoSyncReceiptMode()">
+                        <option value="UPI">UPI</option>
+                        <option value="Cash">Cash</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="Card">Card</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="entryAmount">Amount (₹)</label>
+                    <input type="number" id="entryAmount" min="0.01" step="0.01" placeholder="0.00" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="entryNotes">Note (Optional)</label>
+                    <input type="text" id="entryNotes" placeholder="e.g. Counter daily cash total">
+                </div>
+
+                <button type="submit" class="btn" id="saveBtn">Save Entry</button>
+            </form>
+        </section>
+
+        <!-- MODIFY SECTION -->
+        <section id="modifySection" class="view-section card">
+            <div class="card-title">Modify / Manage Ledger Entries</div>
+            
+            <div class="filter-row">
+                <label><strong>Select Month & Year:</strong></label>
+                <select id="modifyMonthSelect" onchange="renderLedger()">
+                    <option value="01">January</option>
+                    <option value="02">February</option>
+                    <option value="03">March</option>
+                    <option value="04">April</option>
+                    <option value="05">May</option>
+                    <option value="06">June</option>
+                    <option value="07">July</option>
+                    <option value="08">August</option>
+                    <option value="09">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
+                <input type="number" id="modifyYearInput" placeholder="YYYY" style="width: 100px;" oninput="renderLedger()">
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Head / Item</th>
+                            <th>Mode</th>
+                            <th>Receipt (₹)</th>
+                            <th>Expense (₹)</th>
+                            <th class="no-print">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modifyTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- VIEW SECTION -->
+        <section id="viewSection" class="view-section card">
+            <div class="card-title">
+                <span>View Ledger Totals</span>
+                <div class="btn-group-responsive no-print">
+                    <button class="btn btn-sm btn-success" onclick="downloadViewCSV()">📥 Download CSV</button>
+                </div>
+            </div>
+
+            <!-- MONTH & YEAR FILTER ADDED TO VIEW SECTION -->
+            <div class="filter-row">
+                <label><strong>Select Month & Year:</strong></label>
+                <select id="viewMonthSelect" onchange="renderLedger()">
+                    <option value="01">January</option>
+                    <option value="02">February</option>
+                    <option value="03">March</option>
+                    <option value="04">April</option>
+                    <option value="05">May</option>
+                    <option value="06">June</option>
+                    <option value="07">July</option>
+                    <option value="08">August</option>
+                    <option value="09">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
+                <input type="number" id="viewYearInput" placeholder="YYYY" style="width: 100px;" oninput="renderLedger()">
+            </div>
+            
+            <div class="summary-box">
+                <div class="summary-row" style="color: var(--success);">
+                    <strong>Accumulated Receipts Total:</strong>
+                    <span id="accumulatedReceipts">₹0.00</span>
+                </div>
+                <div class="summary-row" style="color: var(--danger);">
+                    <strong>Accumulated Expenses Total:</strong>
+                    <span id="accumulatedExpenses">₹0.00</span>
+                </div>
+
+                <div class="mode-breakdown-box">
+                    <div class="mode-breakdown-title">Accumulated Expenses by Payment Mode</div>
+                    <div id="modeExpensesList"></div>
+                </div>
+
+                <div class="cat-breakdown-box">
+                    <div class="cat-breakdown-title">Consolidated Expenses by Category</div>
+                    <div id="categoryExpensesList"></div>
+                </div>
+            </div>
+
+            <div style="margin-top: 1rem;">
+                <h4 style="margin-bottom: 0.5rem;">Transactions Record</h4>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Head / Item</th>
+                                <th>Mode</th>
+                                <th>Receipt (₹)</th>
+                                <th>Expense (₹)</th>
+                                <th>Note</th>
+                            </tr>
+                        </thead>
+                        <tbody id="viewTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- PDF CREATE SECTION -->
+        <section id="pdfViewSection" class="view-section card">
+            <div class="card-title">
+                <span>PDF / Print Statement</span>
+                <button class="btn btn-sm no-print" onclick="triggerPrint()">🖨️ Print / Save PDF</button>
+            </div>
+
+            <div class="filter-row no-print">
+                <label><strong>Select Month & Year:</strong></label>
+                <select id="pdfMonthSelect" onchange="renderLedger()">
+                    <option value="01">January</option>
+                    <option value="02">February</option>
+                    <option value="03">March</option>
+                    <option value="04">April</option>
+                    <option value="05">May</option>
+                    <option value="06">June</option>
+                    <option value="07">July</option>
+                    <option value="08">August</option>
+                    <option value="09">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
+                <input type="number" id="pdfYearInput" placeholder="YYYY" style="width: 100px;" oninput="renderLedger()">
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <h3 style="color: var(--primary);">Home Ledger Statement</h3>
+                <p style="font-size: 0.85rem; color: #334155; font-weight: 600;">A.S.M Consultancy Services</p>
+                <p style="font-size: 0.85rem; color: var(--primary); font-weight: bold; margin-top: 2px;" id="pdfStatementPeriod">August 2026</p>
+            </div>
+
+            <div class="summary-box" style="margin-bottom: 1.5rem;">
+                <div class="summary-row" style="color: var(--success);">
+                    <span>ACCUMULATED RECEIPTS:</span>
+                    <strong id="pdfReceiptsTotal">₹0.00</strong>
+                </div>
+                <div class="summary-row" style="color: var(--danger);">
+                    <span>ACCUMULATED EXPENSES:</span>
+                    <strong id="pdfExpensesTotal">₹0.00</strong>
+                </div>
+
+                <div class="mode-breakdown-box">
+                    <div class="mode-breakdown-title">Expenses Breakdown (Payment Mode)</div>
+                    <div id="pdfModeExpensesList"></div>
+                </div>
+
+                <div class="cat-breakdown-box">
+                    <div class="cat-breakdown-title">Consolidated Category Expenses</div>
+                    <div id="pdfCategoryExpensesList"></div>
+                </div>
+            </div>
+
+            <h4 style="margin-top: 1rem; margin-bottom: 0.5rem; color: var(--danger);">Expenses Details</h4>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Item</th>
+                            <th>Mode</th>
+                            <th>Expense (₹)</th>
+                            <th>Note</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pdfExpensesBody"></tbody>
+                </table>
+            </div>
+
+            <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--success);">Receipts Details</h4>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Head</th>
+                            <th>Mode</th>
+                            <th>Receipt (₹)</th>
+                            <th>Note</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pdfReceiptsBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- BACKUP / RESTORE SECTION -->
+        <section id="backupSection" class="view-section card">
+            <div class="card-title">Backup & Restore Data</div>
+
+            <div class="tools-box">
+                <h4 style="margin-bottom: 0.5rem; color: var(--primary);">💾 Export / Backup Data</h4>
+                <p style="font-size: 0.8rem; color: #475569; margin-bottom: 1rem;">
+                    Generate a backup file named with your selected Month and Year.
+                </p>
+                <div class="form-group">
+                    <label for="backupMonthYear">Select Month & Year for File Name</label>
+                    <input type="month" id="backupMonthYear">
+                </div>
+                <button class="btn btn-success" onclick="exportBackupFile()">Export Backup File</button>
+            </div>
+
+            <div class="tools-box" style="background: #fef2f2; border-color: #fecaca;">
+                <h4 style="margin-bottom: 0.5rem; color: var(--danger);">📂 Restore Data</h4>
+                <p style="font-size: 0.8rem; color: #475569; margin-bottom: 1rem;">
+                    Select a previously downloaded backup JSON file to restore your ledger entries.
+                </p>
+                <div class="form-group">
+                    <label for="restoreFile">Choose Backup File (.json)</label>
+                    <input type="file" id="restoreFile" accept=".json">
+                </div>
+                <button class="btn btn-danger" onclick="importBackupFile()">Restore Data from File</button>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- PRE-DATA / CATEGORY POPUP MODAL -->
+    <div id="preDataModal" class="modal-overlay">
+        <div class="modal">
+            <div class="card-title">
+                <span id="modalCategoryTitle">Manage Categories</span>
+                <button class="btn btn-danger btn-sm" onclick="closePreDataModal()">Close</button>
+            </div>
+            
+            <div class="form-group">
+                <label>Add New Head/Category</label>
+                <div class="input-row">
+                    <input type="text" id="newItemName" placeholder="e.g. Consultancy Fee, Sales">
+                    <button type="button" class="btn btn-add-item" onclick="addNewPreDataItem()">Add</button>
+                </div>
+            </div>
+
+            <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="preDataTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- FUTURE DATE CONFIRMATION POPUP MODAL -->
+    <div id="futureDateModal" class="modal-overlay">
+        <div class="modal" style="max-width: 420px; text-align: center;">
+            <h3 style="color: var(--primary); margin-bottom: 0.5rem; font-size: 1.2rem;">📅 Future Date Detected</h3>
+            <p style="font-size: 0.9rem; color: #475569; margin-bottom: 1.25rem; line-height: 1.4;">
+                You are entering a date in the future. Do you wish to continue saving with this future date or cancel?
+            </p>
+            <div style="display: flex; gap: 0.5rem; justify-content: center;">
+                <button type="button" class="btn btn-secondary" style="width: 50%;" onclick="closeFutureDateModal()">Cancel</button>
+                <button type="button" class="btn btn-success" style="width: 50%;" onclick="confirmFutureDateSave()">Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- IN-APP RESET CONFIRMATION MODAL -->
+    <div id="resetModal" class="modal-overlay">
+        <div class="modal" style="max-width: 420px; text-align: center;">
+            <div id="resetConfirmState">
+                <h3 style="color: var(--danger); margin-bottom: 0.5rem; font-size: 1.2rem;">⚠️ Reset All Data?</h3>
+                <p style="font-size: 0.9rem; color: #475569; margin-bottom: 1.25rem; line-height: 1.4;">
+                    Are you sure you want to delete all saved ledger entries? This action cannot be undone.
+                </p>
+                <div style="display: flex; gap: 0.5rem; justify-content: center;">
+                    <button type="button" class="btn btn-secondary" style="width: 50%;" onclick="closeResetModal()">Cancel</button>
+                    <button type="button" class="btn btn-danger" style="width: 50%;" onclick="executeResetData()">Confirm</button>
+                </div>
+            </div>
+            
+            <div id="resetSuccessState" style="display: none;">
+                <div style="font-size: 2.2rem; margin-bottom: 0.3rem;">🗑️</div>
+                <h3 style="color: var(--danger); margin-bottom: 0.4rem;">All Data Deleted</h3>
+                <p style="font-size: 0.85rem; color: #475569; margin-bottom: 1rem;">
+                    Your app has been restored to a fresh state.
+                </p>
+                <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="closeResetModal()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div>Digital Address book, Contractor Site Ledger , Printpro</div>
+        <div>A.S.M Consultancy Services, 9443262945</div>
+    </footer>
+
+    <nav class="nav-bar">
+        <button class="nav-item active" onclick="switchTab('createSection', this)">➕ Create</button>
+        <button class="nav-item" onclick="switchTab('modifySection', this)">✏️ Modify</button>
+        <button class="nav-item" onclick="switchTab('viewSection', this)">📊 View</button>
+        <button class="nav-item" onclick="switchTab('pdfViewSection', this)">📄 PDF Create</button>
+        <button class="nav-item" onclick="switchTab('backupSection', this)">💾 Backup/Restore</button>
+    </nav>
+
+    <script>
+        const monthNames = [
+            "January", "February", "March", "April", "May", "June", 
+            "July", "August", "September", "October", "November", "December"
+        ];
+
+        const defaultExpenseCategories = ["Vegetables", "Milk", "Grocery", "Fuel", "Electricity", "Rent", "Salary"];
+        const defaultReceiptCategories = ["UPI Collection", "Cash Collection", "Bank Transfer In", "General Sales", "Consultation Fee"];
+        
+        let expenseItems = JSON.parse(localStorage.getItem('asm_expenseItems')) || defaultExpenseCategories;
+        let receiptItems = JSON.parse(localStorage.getItem('asm_receiptItems')) || defaultReceiptCategories;
+        let ledgerEntries = JSON.parse(localStorage.getItem('asm_ledgerEntries')) || [];
+        let editingIndex = null;
+        let pendingSaveEntry = null;
+
+        const itemSearchInput = document.getElementById('itemSearchInput');
+        const dropdownMenu = document.getElementById('dropdownMenu');
+        const entryDateInput = document.getElementById('entryDate');
+
+        // HELPER FUNCTION: CONVERT YYYY-MM-DD TO DD-MM-YYYY
+        function formatDateDMY(dateStr) {
+            if (!dateStr) return '';
+            const parts = dateStr.split('-');
+            if (parts.length === 3) {
+                return `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            return dateStr;
+        }
+
+        // TRIGGER PRINT WITH AUTOMATIC "Home ledger DDMMYYYY" FILENAME
+        function triggerPrint() {
+            const originalTitle = document.title;
+            const today = new Date();
+            const dd = String(today.getDate()).padStart(2, '0');
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const yyyy = today.getFullYear();
+            
+            document.title = `Home ledger ${dd}${mm}${yyyy}`;
+            window.print();
+            document.title = originalTitle;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date();
+            entryDateInput.valueAsDate = today;
+            
+            const currentMonthStr = String(today.getMonth() + 1).padStart(2, '0');
+            const currentYearNum = today.getFullYear();
+
+            // Set default month selections & year input values across all modules
+            document.getElementById('modifyMonthSelect').value = currentMonthStr;
+            document.getElementById('modifyYearInput').value = currentYearNum;
+
+            document.getElementById('viewMonthSelect').value = currentMonthStr;
+            document.getElementById('viewYearInput').value = currentYearNum;
+
+            document.getElementById('pdfMonthSelect').value = currentMonthStr;
+            document.getElementById('pdfYearInput').value = currentYearNum;
+
+            document.getElementById('backupMonthYear').value = `${currentYearNum}-${currentMonthStr}`;
+
+            handleTypeChange();
+            renderLedger();
+            setupSearchableDropdown();
+        });
+
+        /* FUTURE DATE CHECK LOGIC */
+        function isFutureDate(selectedDateStr) {
+            if (!selectedDateStr) return false;
+            const selectedDate = new Date(selectedDateStr);
+            selectedDate.setHours(0, 0, 0, 0);
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            return selectedDate > today;
+        }
+
+        function closeFutureDateModal() {
+            document.getElementById('futureDateModal').classList.remove('active');
+            pendingSaveEntry = null;
+        }
+
+        function confirmFutureDateSave() {
+            if (pendingSaveEntry) {
+                executeSaveEntry(pendingSaveEntry);
+            }
+            closeFutureDateModal();
+        }
+
+        function saveToStorage() {
+            localStorage.setItem('asm_expenseItems', JSON.stringify(expenseItems));
+            localStorage.setItem('asm_receiptItems', JSON.stringify(receiptItems));
+            localStorage.setItem('asm_ledgerEntries', JSON.stringify(ledgerEntries));
+        }
+
+        function getCurrentCategoryList() {
+            const type = document.getElementById('entryType').value;
+            return type === 'Expense' ? expenseItems : receiptItems;
+        }
+
+        function handleTypeChange() {
+            const type = document.getElementById('entryType').value;
+            const itemLabel = document.getElementById('itemLabel');
+            
+            if (type === 'Expense') {
+                itemLabel.textContent = 'Expense Category';
+            } else {
+                itemLabel.textContent = 'Receipt Head / Source';
+            }
+
+            itemSearchInput.value = '';
+            renderDropdownOptions('');
+            autoSyncReceiptMode();
+        }
+
+        /* SEARCHABLE DROPDOWN LOGIC */
+        function setupSearchableDropdown() {
+            itemSearchInput.addEventListener('focus', () => {
+                renderDropdownOptions(itemSearchInput.value);
+                dropdownMenu.classList.add('show');
+            });
+
+            itemSearchInput.addEventListener('input', () => {
+                renderDropdownOptions(itemSearchInput.value);
+                dropdownMenu.classList.add('show');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.custom-dropdown-container')) {
+                    dropdownMenu.classList.remove('show');
+                }
+            });
+        }
+
+        function renderDropdownOptions(filterText) {
+            const list = getCurrentCategoryList();
+            dropdownMenu.innerHTML = '';
+
+            const filtered = list.filter(item => 
+                item.toLowerCase().includes(filterText.toLowerCase().trim())
+            );
+
+            if (filtered.length === 0) {
+                const noResult = document.createElement('div');
+                noResult.className = 'dropdown-item';
+                noResult.style.color = '#94a3b8';
+                noResult.textContent = 'No matching category';
+                dropdownMenu.appendChild(noResult);
+                return;
+            }
+
+            filtered.forEach(item => {
+                const option = document.createElement('div');
+                option.className = 'dropdown-item';
+                option.textContent = item;
+                option.addEventListener('click', () => {
+                    itemSearchInput.value = item;
+                    dropdownMenu.classList.remove('show');
+                });
+                dropdownMenu.appendChild(option);
+            });
+        }
+
+        function autoSyncReceiptMode() {
+            const type = document.getElementById('entryType').value;
+            const mode = document.getElementById('paymentMode').value;
+
+            if (type === 'Receipt') {
+                if (mode === 'UPI' && receiptItems.includes("UPI Collection")) {
+                    itemSearchInput.value = "UPI Collection";
+                } else if (mode === 'Cash' && receiptItems.includes("Cash Collection")) {
+                    itemSearchInput.value = "Cash Collection";
+                } else if (mode === 'Bank Transfer' && receiptItems.includes("Bank Transfer In")) {
+                    itemSearchInput.value = "Bank Transfer In";
+                }
+            }
+        }
+
+        function openResetModal() {
+            document.getElementById('resetConfirmState').style.display = 'block';
+            document.getElementById('resetSuccessState').style.display = 'none';
+            document.getElementById('resetModal').classList.add('active');
+        }
+
+        function closeResetModal() {
+            document.getElementById('resetModal').classList.remove('active');
+        }
+
+        function executeResetData() {
+            localStorage.removeItem('asm_expenseItems');
+            localStorage.removeItem('asm_receiptItems');
+            localStorage.removeItem('asm_ledgerEntries');
+            
+            expenseItems = [...defaultExpenseCategories];
+            receiptItems = [...defaultReceiptCategories];
+            ledgerEntries = [];
+            editingIndex = null;
+
+            document.getElementById('ledgerForm').reset();
+            entryDateInput.valueAsDate = new Date();
+            document.getElementById('saveBtn').textContent = 'Save Entry';
+
+            handleTypeChange();
+            renderLedger();
+
+            document.getElementById('resetConfirmState').style.display = 'none';
+            document.getElementById('resetSuccessState').style.display = 'block';
+        }
+
+        function switchTab(sectionId, element) {
+            document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            
+            document.getElementById(sectionId).classList.add('active');
+            element.classList.add('active');
+
+            renderLedger();
+        }
+
+        function openPreDataModal() {
+            const type = document.getElementById('entryType').value;
+            document.getElementById('modalCategoryTitle').textContent = type === 'Expense' ? 'Manage Expense Categories' : 'Manage Receipt Heads';
+            document.getElementById('preDataModal').classList.add('active');
+            renderPreDataTable();
+        }
+
+        function closePreDataModal() {
+            document.getElementById('preDataModal').classList.remove('active');
+        }
+
+        function renderPreDataTable() {
+            const currentList = getCurrentCategoryList();
+            const tbody = document.getElementById('preDataTableBody');
+            
+            tbody.innerHTML = '';
+            currentList.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item}</td>
+                    <td>
+                        <button class="btn btn-sm btn-secondary" onclick="editPreDataItem(${index})">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deletePreDataItem(${index})">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function addNewPreDataItem() {
+            const input = document.getElementById('newItemName');
+            const value = input.value.trim();
+            const currentList = getCurrentCategoryList();
+
+            if (value && !currentList.includes(value)) {
+                currentList.push(value);
+                input.value = '';
+                saveToStorage();
+                renderPreDataTable();
+                renderDropdownOptions('');
+            }
+        }
+
+        function editPreDataItem(index) {
+            const currentList = getCurrentCategoryList();
+            const updated = prompt("Modify category name:", currentList[index]);
+            
+            if (updated && updated.trim() !== "") {
+                currentList[index] = updated.trim();
+                saveToStorage();
+                renderPreDataTable();
+                renderDropdownOptions('');
+            }
+        }
+
+        function deletePreDataItem(index) {
+            const currentList = getCurrentCategoryList();
+            currentList.splice(index, 1);
+            saveToStorage();
+            renderPreDataTable();
+            renderDropdownOptions('');
+        }
+
+        document.getElementById('ledgerForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const categoryValue = itemSearchInput.value.trim();
+            if (!categoryValue) return;
+
+            const entry = {
+                date: entryDateInput.value,
+                type: document.getElementById('entryType').value,
+                item: categoryValue,
+                mode: document.getElementById('paymentMode').value,
+                amount: parseFloat(document.getElementById('entryAmount').value),
+                notes: document.getElementById('entryNotes').value
+            };
+
+            // Check if future date on Save attempt
+            if (isFutureDate(entry.date)) {
+                pendingSaveEntry = entry;
+                document.getElementById('futureDateModal').classList.add('active');
+            } else {
+                executeSaveEntry(entry);
+            }
+        });
+
+        function executeSaveEntry(entry) {
+            if (editingIndex !== null) {
+                ledgerEntries[editingIndex] = entry;
+                editingIndex = null;
+                document.getElementById('saveBtn').textContent = 'Save Entry';
+            } else {
+                ledgerEntries.push(entry);
+            }
+
+            saveToStorage();
+
+            document.getElementById('ledgerForm').reset();
+            entryDateInput.valueAsDate = new Date();
+            handleTypeChange();
+            renderLedger();
+        }
+
+        function deleteEntry(index) {
+            ledgerEntries.splice(index, 1);
+            saveToStorage();
+            renderLedger();
+        }
+
+        function editEntry(index) {
+            const entry = ledgerEntries[index];
+            editingIndex = index;
+
+            entryDateInput.value = entry.date;
+            document.getElementById('entryType').value = entry.type;
+            handleTypeChange();
+
+            itemSearchInput.value = entry.item;
+            document.getElementById('paymentMode').value = entry.mode;
+            document.getElementById('entryAmount').value = entry.amount;
+            document.getElementById('entryNotes').value = entry.notes || '';
+            document.getElementById('saveBtn').textContent = 'Update Entry';
+
+            switchTab('createSection', document.querySelectorAll('.nav-item')[0]);
+        }
+
+        function renderLedger() {
+            let viewTotalReceipts = 0;
+            let viewTotalExpenses = 0;
+
+            let pdfTotalReceipts = 0;
+            let pdfTotalExpenses = 0;
+
+            const expModeTotals = {};
+            const expCatTotals = {};
+            const pdfExpModeTotals = {};
+            const pdfExpCatTotals = {};
+
+            const modifyBody = document.getElementById('modifyTableBody');
+            const viewBody = document.getElementById('viewTableBody');
+            const pdfExpBody = document.getElementById('pdfExpensesBody');
+            const pdfRecBody = document.getElementById('pdfReceiptsBody');
+
+            modifyBody.innerHTML = '';
+            viewBody.innerHTML = '';
+            pdfExpBody.innerHTML = '';
+            pdfRecBody.innerHTML = '';
+
+            const modifyM = document.getElementById('modifyMonthSelect').value;
+            const modifyY = document.getElementById('modifyYearInput').value.trim();
+            const selectedModifyMY = (modifyY && modifyM) ? `${modifyY}-${modifyM}` : '';
+
+            const viewM = document.getElementById('viewMonthSelect').value;
+            const viewY = document.getElementById('viewYearInput').value.trim();
+            const selectedViewMY = (viewY && viewM) ? `${viewY}-${viewM}` : '';
+
+            const pdfM = document.getElementById('pdfMonthSelect').value;
+            const pdfY = document.getElementById('pdfYearInput').value.trim();
+            const selectedPdfMY = (pdfY && pdfM) ? `${pdfY}-${pdfM}` : '';
+
+            if (pdfY && pdfM) {
+                const mIndex = parseInt(pdfM, 10) - 1;
+                document.getElementById('pdfStatementPeriod').textContent = `${monthNames[mIndex]} ${pdfY}`;
+            }
+
+            ledgerEntries.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            ledgerEntries.forEach((entry, idx) => {
+                const displayDate = formatDateDMY(entry.date);
+                const isExpense = entry.type === 'Expense';
+                const receiptAmt = !isExpense ? `₹${entry.amount.toFixed(2)}` : '-';
+                const expenseAmt = isExpense ? `₹${entry.amount.toFixed(2)}` : '-';
+
+                // 1. RENDER MODIFY TABLE (Filtered by Modify Month & Year)
+                if (!selectedModifyMY || entry.date.startsWith(selectedModifyMY)) {
+                    const trModify = document.createElement('tr');
+                    trModify.innerHTML = `
+                        <td>${displayDate}</td>
+                        <td class="${isExpense ? 'tag-expense' : 'tag-receipt'}">${entry.type}</td>
+                        <td>${entry.item}</td>
+                        <td>${entry.mode}</td>
+                        <td style="color: var(--success); font-weight: 600;">${receiptAmt}</td>
+                        <td style="color: var(--danger); font-weight: 600;">${expenseAmt}</td>
+                        <td class="no-print">
+                            <button class="btn btn-sm btn-secondary" onclick="editEntry(${idx})">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteEntry(${idx})">Del</button>
+                        </td>
+                    `;
+                    modifyBody.appendChild(trModify);
+                }
+
+                // 2. RENDER VIEW TABLE & TOTALS (Filtered by View Month & Year)
+                if (!selectedViewMY || entry.date.startsWith(selectedViewMY)) {
+                    if (isExpense) {
+                        viewTotalExpenses += entry.amount;
+                        expModeTotals[entry.mode] = (expModeTotals[entry.mode] || 0) + entry.amount;
+                        expCatTotals[entry.item] = (expCatTotals[entry.item] || 0) + entry.amount;
+                    } else {
+                        viewTotalReceipts += entry.amount;
+                    }
+
+                    const trView = document.createElement('tr');
+                    trView.innerHTML = `
+                        <td>${displayDate}</td>
+                        <td class="${isExpense ? 'tag-expense' : 'tag-receipt'}">${entry.type}</td>
+                        <td>${entry.item}</td>
+                        <td>${entry.mode}</td>
+                        <td style="color: var(--success); font-weight: 600;">${receiptAmt}</td>
+                        <td style="color: var(--danger); font-weight: 600;">${expenseAmt}</td>
+                        <td>${entry.notes || '-'}</td>
+                    `;
+                    viewBody.appendChild(trView);
+                }
+
+                // 3. RENDER PDF TABLES & TOTALS (Filtered by PDF Month & Year)
+                if (!selectedPdfMY || entry.date.startsWith(selectedPdfMY)) {
+                    if (isExpense) {
+                        pdfTotalExpenses += entry.amount;
+                        pdfExpModeTotals[entry.mode] = (pdfExpModeTotals[entry.mode] || 0) + entry.amount;
+                        pdfExpCatTotals[entry.item] = (pdfExpCatTotals[entry.item] || 0) + entry.amount;
+                    } else {
+                        pdfTotalReceipts += entry.amount;
+                    }
+
+                    const trPdf = document.createElement('tr');
+                    trPdf.innerHTML = `
+                        <td>${displayDate}</td>
+                        <td>${entry.item}</td>
+                        <td>${entry.mode}</td>
+                        <td style="font-weight: 600;">₹${entry.amount.toFixed(2)}</td>
+                        <td>${entry.notes || '-'}</td>
+                    `;
+                    if (isExpense) {
+                        pdfExpBody.appendChild(trPdf);
+                    } else {
+                        pdfRecBody.appendChild(trPdf);
+                    }
+                }
+            });
+
+            document.getElementById('accumulatedReceipts').textContent = `₹${viewTotalReceipts.toFixed(2)}`;
+            document.getElementById('accumulatedExpenses').textContent = `₹${viewTotalExpenses.toFixed(2)}`;
+            document.getElementById('pdfReceiptsTotal').textContent = `₹${pdfTotalReceipts.toFixed(2)}`;
+            document.getElementById('pdfExpensesTotal').textContent = `₹${pdfTotalExpenses.toFixed(2)}`;
+
+            renderBreakdowns('modeExpensesList', expModeTotals);
+            renderBreakdowns('pdfModeExpensesList', pdfExpModeTotals);
+            renderBreakdowns('categoryExpensesList', expCatTotals);
+            renderBreakdowns('pdfCategoryExpensesList', pdfExpCatTotals);
+        }
+
+        function renderBreakdowns(containerId, dataObj) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            const keys = Object.keys(dataObj);
+            if (keys.length === 0) {
+                container.innerHTML = `<div class="mode-item" style="color: #94a3b8;">No expense data recorded</div>`;
+                return;
+            }
+
+            keys.forEach(key => {
+                const div = document.createElement('div');
+                div.className = 'mode-item';
+                div.innerHTML = `
+                    <span>${key}</span>
+                    <strong>₹${dataObj[key].toFixed(2)}</strong>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function downloadViewCSV() {
+            if (ledgerEntries.length === 0) return;
+
+            const viewM = document.getElementById('viewMonthSelect').value;
+            const viewY = document.getElementById('viewYearInput').value.trim();
+            const selectedViewMY = (viewY && viewM) ? `${viewY}-${viewM}` : '';
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Date,Type,Category/Head,Payment Mode,Receipt Amount (INR),Expense Amount (INR),Notes\n";
+
+            const filteredEntries = ledgerEntries.filter(entry => !selectedViewMY || entry.date.startsWith(selectedViewMY));
+
+            filteredEntries.forEach(entry => {
+                const displayDate = formatDateDMY(entry.date);
+                const isExpense = entry.type === 'Expense';
+                const recVal = !isExpense ? entry.amount : "";
+                const expVal = isExpense ? entry.amount : "";
+                const note = (entry.notes || "").replace(/"/g, '""');
+                csvContent += `"${displayDate}","${entry.type}","${entry.item}","${entry.mode}","${recVal}","${expVal}","${note}"\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            
+            const today = new Date();
+            const dateStr = formatDateDMY(today.toISOString().slice(0, 10));
+            
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `ASM_Home_Ledger_Transactions_${dateStr}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportBackupFile() {
+            const monthYearInput = document.getElementById('backupMonthYear').value;
+            let monthName = "Ledger";
+            let yearStr = "";
+
+            if (monthYearInput) {
+                const [y, m] = monthYearInput.split("-");
+                monthName = monthNames[parseInt(m, 10) - 1] || "Ledger";
+                yearStr = y;
+            } else {
+                const today = new Date();
+                monthName = monthNames[today.getMonth()];
+                yearStr = today.getFullYear();
+            }
+
+            const fileName = `ASM_Home_Ledger_Backup_${monthName}_${yearStr}.json`;
+
+            const dataToExport = {
+                version: "1.2",
+                exportDate: new Date().toISOString(),
+                monthYearLabel: `${monthName} ${yearStr}`,
+                expenseItems: expenseItems,
+                receiptItems: receiptItems,
+                ledgerEntries: ledgerEntries
+            };
+
+            const jsonStr = JSON.stringify(dataToExport, null, 2);
+            const blob = new Blob([jsonStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importBackupFile() {
+            const fileInput = document.getElementById('restoreFile');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    if (importedData.ledgerEntries) {
+                        expenseItems = importedData.expenseItems || defaultExpenseCategories;
+                        receiptItems = importedData.receiptItems || defaultReceiptCategories;
+                        ledgerEntries = importedData.ledgerEntries;
+                        
+                        saveToStorage();
+                        handleTypeChange();
+                        renderLedger();
+
+                        fileInput.value = '';
+                    }
+                } catch (err) {
+                    console.error("Error reading backup file:", err);
+                }
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
