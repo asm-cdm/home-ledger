@@ -395,10 +395,9 @@
             margin-bottom: 3px;
         }
 
-        /* PRINT MEDIA STYLES - REMOVES BROWSER HEADER & FOOTER LINES */
         @page {
             size: auto;
-            margin: 0; /* REMOVES DEFAULT BROWSER HEADERS & FOOTERS */
+            margin: 0;
         }
 
         @media print {
@@ -554,7 +553,6 @@
                 </div>
             </div>
 
-            <!-- MONTH & YEAR FILTER ADDED TO VIEW SECTION -->
             <div class="filter-row">
                 <label><strong>Select Month & Year:</strong></label>
                 <select id="viewMonthSelect" onchange="renderLedger()">
@@ -744,7 +742,7 @@
             <div class="form-group">
                 <label>Add New Head/Category</label>
                 <div class="input-row">
-                    <input type="text" id="newItemName" placeholder="e.g. Consultancy Fee, Sales">
+                    <input type="text" id="newItemName" placeholder="Type to filter or add new..." oninput="renderPreDataTable()">
                     <button type="button" class="btn btn-add-item" onclick="addNewPreDataItem()">Add</button>
                 </div>
             </div>
@@ -760,6 +758,18 @@
                     <tbody id="preDataTableBody"></tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <!-- IN-APP ALERT/WARNING MODAL -->
+    <div id="warningModal" class="modal-overlay">
+        <div class="modal" style="max-width: 420px; text-align: center;">
+            <div style="font-size: 2.5rem; margin-bottom: 0.3rem;" id="warningIcon">⚠️</div>
+            <h3 style="color: var(--danger); margin-bottom: 0.5rem; font-size: 1.1rem;" id="warningTitle">Notice</h3>
+            <p style="font-size: 0.9rem; color: #475569; margin-bottom: 1.25rem; line-height: 1.4;" id="warningMessage">
+                Notification message.
+            </p>
+            <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="closeWarningModal()">OK</button>
         </div>
     </div>
 
@@ -834,7 +844,6 @@
         const dropdownMenu = document.getElementById('dropdownMenu');
         const entryDateInput = document.getElementById('entryDate');
 
-        // HELPER FUNCTION: CONVERT YYYY-MM-DD TO DD-MM-YYYY
         function formatDateDMY(dateStr) {
             if (!dateStr) return '';
             const parts = dateStr.split('-');
@@ -844,7 +853,17 @@
             return dateStr;
         }
 
-        // TRIGGER PRINT WITH AUTOMATIC "Home ledger DDMMYYYY" FILENAME
+        function showAppWarning(title, message, icon = '⚠️') {
+            document.getElementById('warningIcon').textContent = icon;
+            document.getElementById('warningTitle').textContent = title;
+            document.getElementById('warningMessage').textContent = message;
+            document.getElementById('warningModal').classList.add('active');
+        }
+
+        function closeWarningModal() {
+            document.getElementById('warningModal').classList.remove('active');
+        }
+
         function triggerPrint() {
             const originalTitle = document.title;
             const today = new Date();
@@ -864,7 +883,6 @@
             const currentMonthStr = String(today.getMonth() + 1).padStart(2, '0');
             const currentYearNum = today.getFullYear();
 
-            // Set default month selections & year input values across all modules
             document.getElementById('modifyMonthSelect').value = currentMonthStr;
             document.getElementById('modifyYearInput').value = currentYearNum;
 
@@ -881,7 +899,6 @@
             setupSearchableDropdown();
         });
 
-        /* FUTURE DATE CHECK LOGIC */
         function isFutureDate(selectedDateStr) {
             if (!selectedDateStr) return false;
             const selectedDate = new Date(selectedDateStr);
@@ -931,7 +948,6 @@
             autoSyncReceiptMode();
         }
 
-        /* SEARCHABLE DROPDOWN LOGIC */
         function setupSearchableDropdown() {
             itemSearchInput.addEventListener('focus', () => {
                 renderDropdownOptions(itemSearchInput.value);
@@ -1038,6 +1054,7 @@
         function openPreDataModal() {
             const type = document.getElementById('entryType').value;
             document.getElementById('modalCategoryTitle').textContent = type === 'Expense' ? 'Manage Expense Categories' : 'Manage Receipt Heads';
+            document.getElementById('newItemName').value = '';
             document.getElementById('preDataModal').classList.add('active');
             renderPreDataTable();
         }
@@ -1049,15 +1066,27 @@
         function renderPreDataTable() {
             const currentList = getCurrentCategoryList();
             const tbody = document.getElementById('preDataTableBody');
+            const filterVal = document.getElementById('newItemName').value.trim().toLowerCase();
             
             tbody.innerHTML = '';
-            currentList.forEach((item, index) => {
+
+            const filteredList = currentList.filter(item => item.toLowerCase().includes(filterVal));
+
+            if (filteredList.length === 0) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td colspan="2" style="text-align: center; color: #94a3b8; padding: 1rem;">No matching categories found</td>`;
+                tbody.appendChild(tr);
+                return;
+            }
+
+            filteredList.forEach((item) => {
+                const originalIndex = currentList.indexOf(item);
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${item}</td>
                     <td>
-                        <button class="btn btn-sm btn-secondary" onclick="editPreDataItem(${index})">Edit</button>
-                        <button class="btn btn-sm btn-danger" onclick="deletePreDataItem(${index})">Delete</button>
+                        <button class="btn btn-sm btn-secondary" onclick="editPreDataItem(${originalIndex})">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deletePreDataItem(${originalIndex})">Delete</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -1069,29 +1098,64 @@
             const value = input.value.trim();
             const currentList = getCurrentCategoryList();
 
-            if (value && !currentList.includes(value)) {
-                currentList.push(value);
-                input.value = '';
-                saveToStorage();
-                renderPreDataTable();
-                renderDropdownOptions('');
+            if (!value) return;
+
+            // Case-insensitive duplicate check
+            const exists = currentList.some(item => item.toLowerCase() === value.toLowerCase());
+            if (exists) {
+                showAppWarning("Item Exists", `"${value}" is already present in your category list.`);
+                return;
             }
+
+            currentList.push(value);
+            input.value = '';
+            saveToStorage();
+            renderPreDataTable();
+            renderDropdownOptions('');
         }
 
         function editPreDataItem(index) {
             const currentList = getCurrentCategoryList();
-            const updated = prompt("Modify category name:", currentList[index]);
+            const oldVal = currentList[index];
+            const updated = prompt("Modify category name:", oldVal);
             
             if (updated && updated.trim() !== "") {
-                currentList[index] = updated.trim();
+                const newVal = updated.trim();
+                const exists = currentList.some((item, idx) => idx !== index && item.toLowerCase() === newVal.toLowerCase());
+                
+                if (exists) {
+                    showAppWarning("Duplicate Category", `"${newVal}" is already present in your list.`);
+                    return;
+                }
+
+                currentList[index] = newVal;
+
+                // Update category name across existing ledger records if modified
+                ledgerEntries.forEach(entry => {
+                    if (entry.item.toLowerCase() === oldVal.toLowerCase()) {
+                        entry.item = newVal;
+                    }
+                });
+
                 saveToStorage();
                 renderPreDataTable();
                 renderDropdownOptions('');
+                renderLedger();
             }
         }
 
         function deletePreDataItem(index) {
             const currentList = getCurrentCategoryList();
+            const categoryToDelete = currentList[index];
+            
+            // Check if category is currently used in any transactions
+            const isUsed = ledgerEntries.some(entry => entry.item.toLowerCase() === categoryToDelete.toLowerCase());
+
+            if (isUsed) {
+                showAppWarning("Cannot Delete", `"${categoryToDelete}" is currently linked to saved ledger entries. Clear or edit those transactions first before deleting this category.`);
+                return;
+            }
+
             currentList.splice(index, 1);
             saveToStorage();
             renderPreDataTable();
@@ -1104,16 +1168,24 @@
             const categoryValue = itemSearchInput.value.trim();
             if (!categoryValue) return;
 
+            const currentList = getCurrentCategoryList();
+            const matchedCategory = currentList.find(item => item.toLowerCase() === categoryValue.toLowerCase());
+
+            // Enforce existing selection only
+            if (!matchedCategory) {
+                showAppWarning("Category Required", "Please select a valid category from the list or add it via '+ Add / Edit'.");
+                return;
+            }
+
             const entry = {
                 date: entryDateInput.value,
                 type: document.getElementById('entryType').value,
-                item: categoryValue,
+                item: matchedCategory,
                 mode: document.getElementById('paymentMode').value,
                 amount: parseFloat(document.getElementById('entryAmount').value),
                 notes: document.getElementById('entryNotes').value
             };
 
-            // Check if future date on Save attempt
             if (isFutureDate(entry.date)) {
                 pendingSaveEntry = entry;
                 document.getElementById('futureDateModal').classList.add('active');
@@ -1209,7 +1281,6 @@
                 const receiptAmt = !isExpense ? `₹${entry.amount.toFixed(2)}` : '-';
                 const expenseAmt = isExpense ? `₹${entry.amount.toFixed(2)}` : '-';
 
-                // 1. RENDER MODIFY TABLE (Filtered by Modify Month & Year)
                 if (!selectedModifyMY || entry.date.startsWith(selectedModifyMY)) {
                     const trModify = document.createElement('tr');
                     trModify.innerHTML = `
@@ -1227,7 +1298,6 @@
                     modifyBody.appendChild(trModify);
                 }
 
-                // 2. RENDER VIEW TABLE & TOTALS (Filtered by View Month & Year)
                 if (!selectedViewMY || entry.date.startsWith(selectedViewMY)) {
                     if (isExpense) {
                         viewTotalExpenses += entry.amount;
@@ -1250,7 +1320,6 @@
                     viewBody.appendChild(trView);
                 }
 
-                // 3. RENDER PDF TABLES & TOTALS (Filtered by PDF Month & Year)
                 if (!selectedPdfMY || entry.date.startsWith(selectedPdfMY)) {
                     if (isExpense) {
                         pdfTotalExpenses += entry.amount;
