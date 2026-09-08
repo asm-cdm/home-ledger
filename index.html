@@ -234,6 +234,22 @@
             flex-wrap: wrap;
         }
 
+        .toggle-group {
+            display: flex;
+            gap: 0.4rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .toggle-btn {
+            background-color: #e2e8f0;
+            color: var(--text);
+        }
+
+        .toggle-btn.active {
+            background-color: var(--primary);
+            color: #ffffff;
+        }
+
         .view-section {
             display: none;
         }
@@ -524,6 +540,8 @@
                     <option value="12">December</option>
                 </select>
                 <input type="number" id="modifyYearInput" placeholder="YYYY" style="width: 100px;" oninput="renderLedger()">
+                <label><strong>Or Pick Date:</strong></label>
+                <input type="date" id="modifyDateInput" onchange="renderLedger()">
             </div>
 
             <div class="table-container">
@@ -553,7 +571,12 @@
                 </div>
             </div>
 
-            <div class="filter-row">
+            <div class="toggle-group no-print">
+                <button type="button" class="btn btn-sm toggle-btn active" id="viewModeMonthBtn" onclick="setViewFilterMode('month')">By Month</button>
+                <button type="button" class="btn btn-sm toggle-btn" id="viewModeRangeBtn" onclick="setViewFilterMode('range')">By Date Range</button>
+            </div>
+
+            <div class="filter-row" id="viewMonthYearGroup">
                 <label><strong>Select Month & Year:</strong></label>
                 <select id="viewMonthSelect" onchange="renderLedger()">
                     <option value="01">January</option>
@@ -570,6 +593,13 @@
                     <option value="12">December</option>
                 </select>
                 <input type="number" id="viewYearInput" placeholder="YYYY" style="width: 100px;" oninput="renderLedger()">
+            </div>
+
+            <div class="filter-row" id="viewDateRangeGroup" style="display: none;">
+                <label><strong>From:</strong></label>
+                <input type="date" id="viewFromDate" onchange="renderLedger()">
+                <label><strong>To:</strong></label>
+                <input type="date" id="viewToDate" onchange="renderLedger()">
             </div>
             
             <div class="summary-box">
@@ -621,7 +651,12 @@
                 <button class="btn btn-sm no-print" onclick="triggerPrint()">🖨️ Print / Save PDF</button>
             </div>
 
-            <div class="filter-row no-print">
+            <div class="toggle-group no-print">
+                <button type="button" class="btn btn-sm toggle-btn active" id="pdfModeMonthBtn" onclick="setPdfFilterMode('month')">By Month</button>
+                <button type="button" class="btn btn-sm toggle-btn" id="pdfModeRangeBtn" onclick="setPdfFilterMode('range')">By Date Range</button>
+            </div>
+
+            <div class="filter-row no-print" id="pdfMonthYearGroup">
                 <label><strong>Select Month & Year:</strong></label>
                 <select id="pdfMonthSelect" onchange="renderLedger()">
                     <option value="01">January</option>
@@ -638,6 +673,13 @@
                     <option value="12">December</option>
                 </select>
                 <input type="number" id="pdfYearInput" placeholder="YYYY" style="width: 100px;" oninput="renderLedger()">
+            </div>
+
+            <div class="filter-row no-print" id="pdfDateRangeGroup" style="display: none;">
+                <label><strong>From:</strong></label>
+                <input type="date" id="pdfFromDate" onchange="renderLedger()">
+                <label><strong>To:</strong></label>
+                <input type="date" id="pdfToDate" onchange="renderLedger()">
             </div>
 
             <div style="margin-bottom: 1rem;">
@@ -761,6 +803,38 @@
         </div>
     </div>
 
+    <!-- EDIT CATEGORY POPUP MODAL -->
+    <div id="editCategoryModal" class="modal-overlay">
+        <div class="modal" style="max-width: 420px;">
+            <div class="card-title">
+                <span>Edit Category</span>
+                <button class="btn btn-danger btn-sm" onclick="closeEditCategoryModal()">Close</button>
+            </div>
+            <div class="form-group">
+                <label for="editCategoryInput">Category Name</label>
+                <input type="text" id="editCategoryInput">
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <button type="button" class="btn btn-secondary" style="width: 50%;" onclick="closeEditCategoryModal()">Cancel</button>
+                <button type="button" class="btn btn-success" style="width: 50%;" onclick="updateCategoryItem()">Update</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DELETE CATEGORY CONFIRMATION MODAL -->
+    <div id="deleteCategoryModal" class="modal-overlay">
+        <div class="modal" style="max-width: 420px; text-align: center;">
+            <h3 style="color: var(--danger); margin-bottom: 0.5rem; font-size: 1.2rem;">🗑️ Delete Category?</h3>
+            <p style="font-size: 0.9rem; color: #475569; margin-bottom: 1.25rem; line-height: 1.4;" id="deleteCategoryMessage">
+                Are you sure you want to delete this category?
+            </p>
+            <div style="display: flex; gap: 0.5rem; justify-content: center;">
+                <button type="button" class="btn btn-secondary" style="width: 50%;" onclick="closeDeleteCategoryModal()">Cancel</button>
+                <button type="button" class="btn btn-danger" style="width: 50%;" onclick="confirmDeleteCategoryItem()">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <!-- IN-APP ALERT/WARNING MODAL -->
     <div id="warningModal" class="modal-overlay">
         <div class="modal" style="max-width: 420px; text-align: center;">
@@ -812,9 +886,79 @@
         </div>
     </div>
 
+    <!-- EDIT LEDGER ENTRY POPUP MODAL -->
+    <div id="editEntryModal" class="modal-overlay">
+        <div class="modal">
+            <div class="card-title">
+                <span>Edit Entry</span>
+                <button class="btn btn-danger btn-sm" onclick="closeEditEntryModal()">Close</button>
+            </div>
+
+            <div class="form-group">
+                <label for="editEntryDate">Date</label>
+                <input type="date" id="editEntryDate" required>
+            </div>
+
+            <div class="form-group">
+                <label for="editEntryType">Entry Type</label>
+                <select id="editEntryType" onchange="handleEditTypeChange()">
+                    <option value="Expense">Expense</option>
+                    <option value="Receipt">Receipt (Income)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="editItemSearchInput" id="editItemLabel">Expense Category</label>
+                <div class="custom-dropdown-container">
+                    <input type="text" id="editItemSearchInput" placeholder="Type to search category..." autocomplete="off" required>
+                    <div id="editDropdownMenu" class="dropdown-menu"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="editPaymentMode">Payment Mode</label>
+                <select id="editPaymentMode">
+                    <option value="UPI">UPI</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Card">Card</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="editEntryAmount">Amount (₹)</label>
+                <input type="number" id="editEntryAmount" min="0.01" step="0.01" placeholder="0.00" required>
+            </div>
+
+            <div class="form-group">
+                <label for="editEntryNotes">Note (Optional)</label>
+                <input type="text" id="editEntryNotes" placeholder="e.g. Counter daily cash total">
+            </div>
+
+            <div style="display: flex; gap: 0.5rem;">
+                <button type="button" class="btn btn-secondary" style="width: 50%;" onclick="closeEditEntryModal()">Cancel</button>
+                <button type="button" class="btn btn-success" style="width: 50%;" onclick="updateLedgerEntry()">Update</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DELETE LEDGER ENTRY CONFIRMATION MODAL -->
+    <div id="deleteEntryModal" class="modal-overlay">
+        <div class="modal" style="max-width: 420px; text-align: center;">
+            <h3 style="color: var(--danger); margin-bottom: 0.5rem; font-size: 1.2rem;">🗑️ Delete Entry?</h3>
+            <p style="font-size: 0.9rem; color: #475569; margin-bottom: 1.25rem; line-height: 1.4;">
+                Are you sure you want to delete this ledger entry? This action cannot be undone.
+            </p>
+            <div style="display: flex; gap: 0.5rem; justify-content: center;">
+                <button type="button" class="btn btn-secondary" style="width: 50%;" onclick="closeDeleteEntryModal()">Cancel</button>
+                <button type="button" class="btn btn-danger" style="width: 50%;" onclick="confirmDeleteEntry()">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <footer>
-        <div>Digital Address book, Contractor Site Ledger , Printpro</div>
-        <div>A.S.M Consultancy Services, 9443262945</div>
+        <div>Your data stays on this device - Backup regularly to stay safe.</div>
+        <div>Powered by A.S.M Consultancy Services</div>
     </footer>
 
     <nav class="nav-bar">
@@ -826,6 +970,18 @@
     </nav>
 
     <script>
+        // Request persistent storage so the browser doesn't
+        // auto-clear data when device storage runs low
+        if (navigator.storage && navigator.storage.persist) {
+            navigator.storage.persist().then(function(granted) {
+                if (granted) {
+                    console.log("Storage is now persistent — protected from auto-clear.");
+                } else {
+                    console.log("Persistent storage not granted by browser.");
+                }
+            });
+        }
+
         const monthNames = [
             "January", "February", "March", "April", "May", "June", 
             "July", "August", "September", "October", "November", "December"
@@ -848,7 +1004,7 @@
             if (!dateStr) return '';
             const parts = dateStr.split('-');
             if (parts.length === 3) {
-                return `${parts[2]}-${parts[1]}-${parts[0]}`;
+                return `${parts[2]}/${parts[1]}/${parts[0]}`;
             }
             return dateStr;
         }
@@ -897,6 +1053,7 @@
             handleTypeChange();
             renderLedger();
             setupSearchableDropdown();
+            setupEditSearchableDropdown();
         });
 
         function isFutureDate(selectedDateStr) {
@@ -920,6 +1077,47 @@
                 executeSaveEntry(pendingSaveEntry);
             }
             closeFutureDateModal();
+        }
+
+        // ===== VIEW / PDF FILTER MODE TOGGLE (isolated module) =====
+        let viewFilterMode = 'month';
+        let pdfFilterMode = 'month';
+
+        function setCurrentMonthYear(monthSelectId, yearInputId) {
+            const today = new Date();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            document.getElementById(monthSelectId).value = mm;
+            document.getElementById(yearInputId).value = today.getFullYear();
+        }
+
+        function setViewFilterMode(mode) {
+            viewFilterMode = mode;
+            document.getElementById('viewModeMonthBtn').classList.toggle('active', mode === 'month');
+            document.getElementById('viewModeRangeBtn').classList.toggle('active', mode === 'range');
+            document.getElementById('viewMonthYearGroup').style.display = mode === 'month' ? 'flex' : 'none';
+            document.getElementById('viewDateRangeGroup').style.display = mode === 'range' ? 'flex' : 'none';
+
+            if (mode === 'month') {
+                document.getElementById('viewFromDate').value = '';
+                document.getElementById('viewToDate').value = '';
+                setCurrentMonthYear('viewMonthSelect', 'viewYearInput');
+            }
+            renderLedger();
+        }
+
+        function setPdfFilterMode(mode) {
+            pdfFilterMode = mode;
+            document.getElementById('pdfModeMonthBtn').classList.toggle('active', mode === 'month');
+            document.getElementById('pdfModeRangeBtn').classList.toggle('active', mode === 'range');
+            document.getElementById('pdfMonthYearGroup').style.display = mode === 'month' ? 'flex' : 'none';
+            document.getElementById('pdfDateRangeGroup').style.display = mode === 'range' ? 'flex' : 'none';
+
+            if (mode === 'month') {
+                document.getElementById('pdfFromDate').value = '';
+                document.getElementById('pdfToDate').value = '';
+                setCurrentMonthYear('pdfMonthSelect', 'pdfYearInput');
+            }
+            renderLedger();
         }
 
         function saveToStorage() {
@@ -1085,8 +1283,8 @@
                 tr.innerHTML = `
                     <td>${item}</td>
                     <td>
-                        <button class="btn btn-sm btn-secondary" onclick="editPreDataItem(${originalIndex})">Edit</button>
-                        <button class="btn btn-sm btn-danger" onclick="deletePreDataItem(${originalIndex})">Delete</button>
+                        <button class="btn btn-sm btn-secondary" onclick="openEditCategoryModal(${originalIndex})">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="openDeleteCategoryModal(${originalIndex})">Delete</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -1114,40 +1312,60 @@
             renderDropdownOptions('');
         }
 
-        function editPreDataItem(index) {
+        // ===== CATEGORY EDIT POPUP (isolated module) =====
+        let editingCategoryIndex = null;
+
+        function openEditCategoryModal(index) {
             const currentList = getCurrentCategoryList();
-            const oldVal = currentList[index];
-            const updated = prompt("Modify category name:", oldVal);
-            
-            if (updated && updated.trim() !== "") {
-                const newVal = updated.trim();
-                const exists = currentList.some((item, idx) => idx !== index && item.toLowerCase() === newVal.toLowerCase());
-                
-                if (exists) {
-                    showAppWarning("Duplicate Category", `"${newVal}" is already present in your list.`);
-                    return;
-                }
-
-                currentList[index] = newVal;
-
-                // Update category name across existing ledger records if modified
-                ledgerEntries.forEach(entry => {
-                    if (entry.item.toLowerCase() === oldVal.toLowerCase()) {
-                        entry.item = newVal;
-                    }
-                });
-
-                saveToStorage();
-                renderPreDataTable();
-                renderDropdownOptions('');
-                renderLedger();
-            }
+            editingCategoryIndex = index;
+            document.getElementById('editCategoryInput').value = currentList[index];
+            document.getElementById('editCategoryModal').classList.add('active');
         }
 
-        function deletePreDataItem(index) {
+        function closeEditCategoryModal() {
+            document.getElementById('editCategoryModal').classList.remove('active');
+            editingCategoryIndex = null;
+        }
+
+        function updateCategoryItem() {
+            const currentList = getCurrentCategoryList();
+            const oldVal = currentList[editingCategoryIndex];
+            const newVal = document.getElementById('editCategoryInput').value.trim();
+
+            if (!newVal) {
+                showAppWarning("Category Required", "Category name cannot be empty.");
+                return;
+            }
+
+            const exists = currentList.some((item, idx) => idx !== editingCategoryIndex && item.toLowerCase() === newVal.toLowerCase());
+            if (exists) {
+                showAppWarning("Duplicate Category", `"${newVal}" is already present in your list.`);
+                return;
+            }
+
+            currentList[editingCategoryIndex] = newVal;
+
+            // Update category name across existing ledger records if modified
+            ledgerEntries.forEach(entry => {
+                if (entry.item.toLowerCase() === oldVal.toLowerCase()) {
+                    entry.item = newVal;
+                }
+            });
+
+            saveToStorage();
+            closeEditCategoryModal();
+            renderPreDataTable();
+            renderDropdownOptions('');
+            renderLedger();
+        }
+
+        // ===== CATEGORY DELETE POPUP (isolated module) =====
+        let deletingCategoryIndex = null;
+
+        function openDeleteCategoryModal(index) {
             const currentList = getCurrentCategoryList();
             const categoryToDelete = currentList[index];
-            
+
             // Check if category is currently used in any transactions
             const isUsed = ledgerEntries.some(entry => entry.item.toLowerCase() === categoryToDelete.toLowerCase());
 
@@ -1156,8 +1374,21 @@
                 return;
             }
 
-            currentList.splice(index, 1);
+            deletingCategoryIndex = index;
+            document.getElementById('deleteCategoryMessage').textContent = `Are you sure you want to delete "${categoryToDelete}"? This action cannot be undone.`;
+            document.getElementById('deleteCategoryModal').classList.add('active');
+        }
+
+        function closeDeleteCategoryModal() {
+            document.getElementById('deleteCategoryModal').classList.remove('active');
+            deletingCategoryIndex = null;
+        }
+
+        function confirmDeleteCategoryItem() {
+            const currentList = getCurrentCategoryList();
+            currentList.splice(deletingCategoryIndex, 1);
             saveToStorage();
+            closeDeleteCategoryModal();
             renderPreDataTable();
             renderDropdownOptions('');
         }
@@ -1211,27 +1442,137 @@
             renderLedger();
         }
 
-        function deleteEntry(index) {
-            ledgerEntries.splice(index, 1);
+        // ===== DELETE ENTRY POPUP (isolated module) =====
+        let deletingEntryIndex = null;
+
+        function openDeleteEntryModal(index) {
+            deletingEntryIndex = index;
+            document.getElementById('deleteEntryModal').classList.add('active');
+        }
+
+        function closeDeleteEntryModal() {
+            document.getElementById('deleteEntryModal').classList.remove('active');
+            deletingEntryIndex = null;
+        }
+
+        function confirmDeleteEntry() {
+            ledgerEntries.splice(deletingEntryIndex, 1);
             saveToStorage();
+            closeDeleteEntryModal();
             renderLedger();
         }
 
-        function editEntry(index) {
+        // ===== EDIT ENTRY POPUP (isolated module, own searchable dropdown) =====
+        let editingEntryIndex = null;
+        const editItemSearchInput = document.getElementById('editItemSearchInput');
+        const editDropdownMenu = document.getElementById('editDropdownMenu');
+
+        function getEditCategoryList() {
+            const type = document.getElementById('editEntryType').value;
+            return type === 'Expense' ? expenseItems : receiptItems;
+        }
+
+        function handleEditTypeChange() {
+            const type = document.getElementById('editEntryType').value;
+            document.getElementById('editItemLabel').textContent = type === 'Expense' ? 'Expense Category' : 'Receipt Head / Source';
+            renderEditDropdownOptions('');
+        }
+
+        function setupEditSearchableDropdown() {
+            editItemSearchInput.addEventListener('focus', () => {
+                renderEditDropdownOptions(editItemSearchInput.value);
+                editDropdownMenu.classList.add('show');
+            });
+
+            editItemSearchInput.addEventListener('input', () => {
+                renderEditDropdownOptions(editItemSearchInput.value);
+                editDropdownMenu.classList.add('show');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#editEntryModal .custom-dropdown-container')) {
+                    editDropdownMenu.classList.remove('show');
+                }
+            });
+        }
+
+        function renderEditDropdownOptions(filterText) {
+            const list = getEditCategoryList();
+            editDropdownMenu.innerHTML = '';
+
+            const filtered = list.filter(item =>
+                item.toLowerCase().includes(filterText.toLowerCase().trim())
+            );
+
+            if (filtered.length === 0) {
+                const noResult = document.createElement('div');
+                noResult.className = 'dropdown-item';
+                noResult.style.color = '#94a3b8';
+                noResult.textContent = 'No matching category';
+                editDropdownMenu.appendChild(noResult);
+                return;
+            }
+
+            filtered.forEach(item => {
+                const option = document.createElement('div');
+                option.className = 'dropdown-item';
+                option.textContent = item;
+                option.addEventListener('click', () => {
+                    editItemSearchInput.value = item;
+                    editDropdownMenu.classList.remove('show');
+                });
+                editDropdownMenu.appendChild(option);
+            });
+        }
+
+        function openEditEntryModal(index) {
             const entry = ledgerEntries[index];
-            editingIndex = index;
+            editingEntryIndex = index;
 
-            entryDateInput.value = entry.date;
-            document.getElementById('entryType').value = entry.type;
-            handleTypeChange();
+            document.getElementById('editEntryDate').value = entry.date;
+            document.getElementById('editEntryType').value = entry.type;
+            handleEditTypeChange();
+            editItemSearchInput.value = entry.item;
+            document.getElementById('editPaymentMode').value = entry.mode;
+            document.getElementById('editEntryAmount').value = entry.amount;
+            document.getElementById('editEntryNotes').value = entry.notes || '';
 
-            itemSearchInput.value = entry.item;
-            document.getElementById('paymentMode').value = entry.mode;
-            document.getElementById('entryAmount').value = entry.amount;
-            document.getElementById('entryNotes').value = entry.notes || '';
-            document.getElementById('saveBtn').textContent = 'Update Entry';
+            document.getElementById('editEntryModal').classList.add('active');
+        }
 
-            switchTab('createSection', document.querySelectorAll('.nav-item')[0]);
+        function closeEditEntryModal() {
+            document.getElementById('editEntryModal').classList.remove('active');
+            editingEntryIndex = null;
+        }
+
+        function updateLedgerEntry() {
+            const categoryValue = editItemSearchInput.value.trim();
+            const currentList = getEditCategoryList();
+            const matchedCategory = currentList.find(item => item.toLowerCase() === categoryValue.toLowerCase());
+
+            if (!matchedCategory) {
+                showAppWarning("Category Required", "Please select a valid category from the list.");
+                return;
+            }
+
+            const amountVal = parseFloat(document.getElementById('editEntryAmount').value);
+            if (!amountVal || amountVal <= 0) {
+                showAppWarning("Amount Required", "Please enter a valid amount.");
+                return;
+            }
+
+            ledgerEntries[editingEntryIndex] = {
+                date: document.getElementById('editEntryDate').value,
+                type: document.getElementById('editEntryType').value,
+                item: matchedCategory,
+                mode: document.getElementById('editPaymentMode').value,
+                amount: amountVal,
+                notes: document.getElementById('editEntryNotes').value
+            };
+
+            saveToStorage();
+            closeEditEntryModal();
+            renderLedger();
         }
 
         function renderLedger() {
@@ -1258,17 +1599,24 @@
 
             const modifyM = document.getElementById('modifyMonthSelect').value;
             const modifyY = document.getElementById('modifyYearInput').value.trim();
+            const modifyDate = document.getElementById('modifyDateInput').value;
             const selectedModifyMY = (modifyY && modifyM) ? `${modifyY}-${modifyM}` : '';
 
             const viewM = document.getElementById('viewMonthSelect').value;
             const viewY = document.getElementById('viewYearInput').value.trim();
+            const viewFrom = document.getElementById('viewFromDate').value;
+            const viewTo = document.getElementById('viewToDate').value;
             const selectedViewMY = (viewY && viewM) ? `${viewY}-${viewM}` : '';
 
             const pdfM = document.getElementById('pdfMonthSelect').value;
             const pdfY = document.getElementById('pdfYearInput').value.trim();
+            const pdfFrom = document.getElementById('pdfFromDate').value;
+            const pdfTo = document.getElementById('pdfToDate').value;
             const selectedPdfMY = (pdfY && pdfM) ? `${pdfY}-${pdfM}` : '';
 
-            if (pdfY && pdfM) {
+            if (pdfFrom && pdfTo) {
+                document.getElementById('pdfStatementPeriod').textContent = `${formatDateDMY(pdfFrom)} to ${formatDateDMY(pdfTo)}`;
+            } else if (pdfY && pdfM) {
                 const mIndex = parseInt(pdfM, 10) - 1;
                 document.getElementById('pdfStatementPeriod').textContent = `${monthNames[mIndex]} ${pdfY}`;
             }
@@ -1281,7 +1629,8 @@
                 const receiptAmt = !isExpense ? `₹${entry.amount.toFixed(2)}` : '-';
                 const expenseAmt = isExpense ? `₹${entry.amount.toFixed(2)}` : '-';
 
-                if (!selectedModifyMY || entry.date.startsWith(selectedModifyMY)) {
+                const matchesModify = modifyDate ? (entry.date === modifyDate) : (!selectedModifyMY || entry.date.startsWith(selectedModifyMY));
+                if (matchesModify) {
                     const trModify = document.createElement('tr');
                     trModify.innerHTML = `
                         <td>${displayDate}</td>
@@ -1291,14 +1640,15 @@
                         <td style="color: var(--success); font-weight: 600;">${receiptAmt}</td>
                         <td style="color: var(--danger); font-weight: 600;">${expenseAmt}</td>
                         <td class="no-print">
-                            <button class="btn btn-sm btn-secondary" onclick="editEntry(${idx})">Edit</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteEntry(${idx})">Del</button>
+                            <button class="btn btn-sm btn-secondary" onclick="openEditEntryModal(${idx})">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="openDeleteEntryModal(${idx})">Del</button>
                         </td>
                     `;
                     modifyBody.appendChild(trModify);
                 }
 
-                if (!selectedViewMY || entry.date.startsWith(selectedViewMY)) {
+                const matchesView = (viewFrom && viewTo) ? (entry.date >= viewFrom && entry.date <= viewTo) : (!selectedViewMY || entry.date.startsWith(selectedViewMY));
+                if (matchesView) {
                     if (isExpense) {
                         viewTotalExpenses += entry.amount;
                         expModeTotals[entry.mode] = (expModeTotals[entry.mode] || 0) + entry.amount;
@@ -1320,7 +1670,8 @@
                     viewBody.appendChild(trView);
                 }
 
-                if (!selectedPdfMY || entry.date.startsWith(selectedPdfMY)) {
+                const matchesPdf = (pdfFrom && pdfTo) ? (entry.date >= pdfFrom && entry.date <= pdfTo) : (!selectedPdfMY || entry.date.startsWith(selectedPdfMY));
+                if (matchesPdf) {
                     if (isExpense) {
                         pdfTotalExpenses += entry.amount;
                         pdfExpModeTotals[entry.mode] = (pdfExpModeTotals[entry.mode] || 0) + entry.amount;
@@ -1382,12 +1733,16 @@
 
             const viewM = document.getElementById('viewMonthSelect').value;
             const viewY = document.getElementById('viewYearInput').value.trim();
+            const viewFrom = document.getElementById('viewFromDate').value;
+            const viewTo = document.getElementById('viewToDate').value;
             const selectedViewMY = (viewY && viewM) ? `${viewY}-${viewM}` : '';
 
             let csvContent = "data:text/csv;charset=utf-8,";
             csvContent += "Date,Type,Category/Head,Payment Mode,Receipt Amount (INR),Expense Amount (INR),Notes\n";
 
-            const filteredEntries = ledgerEntries.filter(entry => !selectedViewMY || entry.date.startsWith(selectedViewMY));
+            const filteredEntries = ledgerEntries.filter(entry =>
+                (viewFrom && viewTo) ? (entry.date >= viewFrom && entry.date <= viewTo) : (!selectedViewMY || entry.date.startsWith(selectedViewMY))
+            );
 
             filteredEntries.forEach(entry => {
                 const displayDate = formatDateDMY(entry.date);
@@ -1402,7 +1757,7 @@
             const link = document.createElement("a");
             
             const today = new Date();
-            const dateStr = formatDateDMY(today.toISOString().slice(0, 10));
+            const dateStr = formatDateDMY(today.toISOString().slice(0, 10)).replace(/\//g, '-');
             
             link.setAttribute("href", encodedUri);
             link.setAttribute("download", `ASM_Home_Ledger_Transactions_${dateStr}.csv`);
