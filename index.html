@@ -1778,7 +1778,11 @@
                 yearStr = today.getFullYear();
             }
 
-            const fileName = `ASM_Home_Ledger_Backup_${monthName}_${yearStr}.json`;
+            const today = new Date();
+            const dd = String(today.getDate()).padStart(2, '0');
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const yy = String(today.getFullYear()).slice(-2);
+            const fileName = `HomeLedger_${dd}${mm}${yy}.json`;
 
             const dataToExport = {
                 version: "1.2",
@@ -1800,6 +1804,8 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+
+            showAppWarning('Backup', 'Backup saved successfully.', '✅');
         }
 
         function importBackupFile() {
@@ -1822,6 +1828,7 @@
                         renderLedger();
 
                         fileInput.value = '';
+                        showAppWarning('Restore', 'Data restored successfully.', '✅');
                     }
                 } catch (err) {
                     console.error("Error reading backup file:", err);
