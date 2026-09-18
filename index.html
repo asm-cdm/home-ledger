@@ -604,6 +604,14 @@
                 <label><strong>To:</strong></label>
                 <input type="date" id="viewToDate" onchange="renderLedger()">
             </div>
+
+            <div class="filter-row" id="viewStatementTypeGroup">
+                <label><strong>Statement Type:</strong></label>
+                <select id="viewStatementType" onchange="applyStatementTypeVisibility()">
+                    <option value="detailed" selected>Detailed Statement</option>
+                    <option value="consolidated">Consolidated Statement</option>
+                </select>
+            </div>
             
             <div class="summary-box">
                 <div class="summary-row" style="color: var(--success);">
@@ -626,7 +634,7 @@
                 </div>
             </div>
 
-            <div style="margin-top: 1rem;">
+            <div style="margin-top: 1rem;" id="viewTransactionsRecordBlock">
                 <h4 style="margin-bottom: 0.5rem;">Transactions Record</h4>
                 <div class="table-container">
                     <table>
@@ -685,6 +693,14 @@
                 <input type="date" id="pdfToDate" onchange="renderLedger()">
             </div>
 
+            <div class="filter-row no-print" id="pdfStatementTypeGroup">
+                <label><strong>Statement Type:</strong></label>
+                <select id="pdfStatementType" onchange="applyStatementTypeVisibility()">
+                    <option value="detailed" selected>Detailed Statement</option>
+                    <option value="consolidated">Consolidated Statement</option>
+                </select>
+            </div>
+
             <div style="margin-bottom: 1rem;">
                 <h3 style="color: var(--primary);">Home Ledger Statement</h3>
                 <p style="font-size: 0.85rem; color: #334155; font-weight: 600;">A.S.M Consultancy Services</p>
@@ -712,36 +728,40 @@
                 </div>
             </div>
 
-            <h4 style="margin-top: 1rem; margin-bottom: 0.5rem; color: var(--danger);">Expenses Details</h4>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Item</th>
-                            <th>Mode</th>
-                            <th>Expense (₹)</th>
-                            <th>Note</th>
-                        </tr>
-                    </thead>
-                    <tbody id="pdfExpensesBody"></tbody>
-                </table>
+            <div id="pdfExpensesDetailsBlock">
+                <h4 style="margin-top: 1rem; margin-bottom: 0.5rem; color: var(--danger);">Expenses Details</h4>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Item</th>
+                                <th>Mode</th>
+                                <th>Expense (₹)</th>
+                                <th>Note</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pdfExpensesBody"></tbody>
+                    </table>
+                </div>
             </div>
 
-            <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--success);">Receipts Details</h4>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Head</th>
-                            <th>Mode</th>
-                            <th>Receipt (₹)</th>
-                            <th>Note</th>
-                        </tr>
-                    </thead>
-                    <tbody id="pdfReceiptsBody"></tbody>
-                </table>
+            <div id="pdfReceiptsDetailsBlock">
+                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--success);">Receipts Details</h4>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Head</th>
+                                <th>Mode</th>
+                                <th>Receipt (₹)</th>
+                                <th>Note</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pdfReceiptsBody"></tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
@@ -1049,6 +1069,7 @@
 
             handleTypeChange();
             renderLedger();
+            applyStatementTypeVisibility();
             setupSearchableDropdown();
             setupEditSearchableDropdown();
         });
@@ -1115,6 +1136,16 @@
                 setCurrentMonthYear('pdfMonthSelect', 'pdfYearInput');
             }
             renderLedger();
+        }
+
+        // ===== STATEMENT TYPE (Detailed / Consolidated) TOGGLE (isolated module) =====
+        function applyStatementTypeVisibility() {
+            const viewType = document.getElementById('viewStatementType').value;
+            document.getElementById('viewTransactionsRecordBlock').style.display = (viewType === 'consolidated') ? 'none' : '';
+
+            const pdfType = document.getElementById('pdfStatementType').value;
+            document.getElementById('pdfExpensesDetailsBlock').style.display = (pdfType === 'consolidated') ? 'none' : '';
+            document.getElementById('pdfReceiptsDetailsBlock').style.display = (pdfType === 'consolidated') ? 'none' : '';
         }
 
         function saveToStorage() {
