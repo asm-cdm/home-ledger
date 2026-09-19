@@ -1444,6 +1444,12 @@
             document.getElementById(sectionId).classList.add('active');
             element.classList.add('active');
 
+            // Clear the View module's search box on every nav press — whichever button is
+            // clicked, including View itself — so a stale search never carries over.
+            // Month/Year or Date Range selection is untouched.
+            const viewSearch = document.getElementById('viewSearchInput');
+            if (viewSearch) viewSearch.value = '';
+
             renderLedger();
         }
 
