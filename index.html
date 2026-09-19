@@ -1641,9 +1641,10 @@
             handleTypeChange();
             renderLedger();
 
-            // After adding a new entry (not editing), move cursor straight into Category field for the next entry
+            // After adding a new entry (not editing), scroll back to the top of the page,
+            // same as when the app first opens.
             if (wasNewEntry) {
-                itemSearchInput.focus();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         }
 
