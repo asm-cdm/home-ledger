@@ -652,7 +652,6 @@
                 <div class="cat-breakdown-box">
                     <div class="cat-breakdown-title">Consolidated Expenses by Category</div>
                     <div id="categoryExpensesList"></div>
-                    <div id="categoryPieChart" style="margin-top: 0.75rem;"></div>
                 </div>
             </div>
 
@@ -744,7 +743,6 @@
                 <div class="cat-breakdown-box">
                     <div class="cat-breakdown-title">Consolidated Category Expenses</div>
                     <div id="pdfCategoryExpensesList"></div>
-                    <div id="pdfCategoryPieChart" style="margin-top: 0.75rem;"></div>
                 </div>
             </div>
 
@@ -1223,7 +1221,6 @@
             renderBreakdowns('modeExpensesList', modeTotals);
             renderBreakdowns('categoryExpensesList', catTotals);
             highlightHighestCategory('categoryExpensesList', catTotals);
-            drawCategoryPieChart('categoryPieChart', catTotals);
         }
 
         function highlightHighestCategory(containerId, catTotals) {
@@ -1246,76 +1243,6 @@
                     label.appendChild(tag);
                 }
             });
-        }
-
-        // ===== CATEGORY PIE / CIRCLE CHART (isolated module, reused for View + PDF) =====
-        // Option D — professional categorical palette (distinct hues, no overlap even with many categories)
-        const PIE_CHART_COLORS = ['#1e3a5f', '#0d9488', '#16a34a', '#d97706', '#dc4c25', '#7c3aed', '#64748b'];
-
-        function drawCategoryPieChart(containerId, dataObj) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-
-            const keys = Object.keys(dataObj);
-            const total = keys.reduce((sum, k) => sum + dataObj[k], 0);
-
-            if (keys.length === 0 || total <= 0) {
-                container.innerHTML = '';
-                return;
-            }
-
-            const cx = 60, cy = 60, r = 55;
-            const labelR = r * 0.62;
-            let cumulativeAngle = -90; // start at top
-            let slicesSvg = '';
-            let labelsSvg = '';
-            let legendHtml = '';
-
-            keys.forEach((key, i) => {
-                const value = dataObj[key];
-                const percent = value / total;
-                const angle = percent * 360;
-                const color = PIE_CHART_COLORS[i % PIE_CHART_COLORS.length];
-                const textColor = '#ffffff';
-
-                let midRad;
-                if (keys.length === 1) {
-                    slicesSvg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" stroke="#ffffff" stroke-width="2"></circle>`;
-                    midRad = (-90 * Math.PI) / 180;
-                    labelsSvg += `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-size="13" font-weight="700" fill="${textColor}">${(percent * 100).toFixed(0)}%</text>`;
-                } else {
-                    const startRad = (cumulativeAngle * Math.PI) / 180;
-                    const endRad = ((cumulativeAngle + angle) * Math.PI) / 180;
-                    const x1 = cx + r * Math.cos(startRad);
-                    const y1 = cy + r * Math.sin(startRad);
-                    const x2 = cx + r * Math.cos(endRad);
-                    const y2 = cy + r * Math.sin(endRad);
-                    const largeArc = angle > 180 ? 1 : 0;
-                    slicesSvg += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${color}" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"></path>`;
-
-                    midRad = ((cumulativeAngle + angle / 2) * Math.PI) / 180;
-                    // Skip on-slice label for very thin slices to avoid clutter; still shown in legend
-                    if (angle >= 14) {
-                        const lx = cx + labelR * Math.cos(midRad);
-                        const ly = cy + labelR * Math.sin(midRad);
-                        labelsSvg += `<text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" text-anchor="middle" dominant-baseline="middle" font-size="11" font-weight="700" fill="${textColor}">${(percent * 100).toFixed(0)}%</text>`;
-                    }
-
-                    cumulativeAngle += angle;
-                }
-
-                legendHtml += `
-                    <div style="display:flex; align-items:center; gap:0.35rem; font-size:0.78rem; padding:0.15rem 0;">
-                        <span style="width:10px; height:10px; border-radius:2px; background:${color}; flex-shrink:0; display:inline-block;"></span>
-                        <span>${key} — ₹${value.toFixed(2)} (${(percent * 100).toFixed(1)}%)</span>
-                    </div>`;
-            });
-
-            container.innerHTML = `
-                <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
-                    <svg viewBox="0 0 120 120" width="110" height="110" style="flex-shrink:0;">${slicesSvg}${labelsSvg}</svg>
-                    <div style="flex:1; min-width:140px;">${legendHtml}</div>
-                </div>`;
         }
 
         function saveToStorage() {
@@ -1921,7 +1848,7 @@
             renderBreakdowns('pdfModeExpensesList', pdfExpModeTotals);
             renderBreakdowns('categoryExpensesList', expCatTotals);
             renderBreakdowns('pdfCategoryExpensesList', pdfExpCatTotals);
-            drawCategoryPieChart('pdfCategoryPieChart', pdfExpCatTotals);
+            highlightHighestCategory('pdfCategoryExpensesList', pdfExpCatTotals);
 
             refreshViewModule();
         }
