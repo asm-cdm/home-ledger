@@ -365,16 +365,16 @@
 
         .highlight-highest {
             background: #eff6ff;
-            border-left: 3px solid #0b1f4e;
+            border-left: 3px solid #1e3a5f;
             padding-left: 0.5rem;
             font-weight: 700;
-            color: #0b1f4e;
+            color: #1e3a5f;
         }
 
         .highlight-highest .highest-tag {
             font-size: 0.7rem;
             font-weight: 700;
-            background: #0b1f4e;
+            background: #1e3a5f;
             color: #fff;
             border-radius: 4px;
             padding: 0.05rem 0.35rem;
@@ -1249,8 +1249,8 @@
         }
 
         // ===== CATEGORY PIE / CIRCLE CHART (isolated module, reused for View + PDF) =====
-        const PIE_CHART_COLORS = ['#0b1f4e', '#122a6b', '#1a3a8f', '#2554b3', '#3b78d8', '#5a9bf0', '#7fb8f5', '#a8d0f7', '#c9e2fa', '#e3f0fc'];
-        const PIE_CHART_LIGHT_TEXT_COUNT = 5; // first N colors are dark enough for white slice-label text; rest use navy text
+        // Option D — professional categorical palette (distinct hues, no overlap even with many categories)
+        const PIE_CHART_COLORS = ['#1e3a5f', '#0d9488', '#16a34a', '#d97706', '#dc4c25', '#7c3aed', '#64748b'];
 
         function drawCategoryPieChart(containerId, dataObj) {
             const container = document.getElementById(containerId);
@@ -1276,11 +1276,11 @@
                 const percent = value / total;
                 const angle = percent * 360;
                 const color = PIE_CHART_COLORS[i % PIE_CHART_COLORS.length];
-                const textColor = (i % PIE_CHART_COLORS.length) < PIE_CHART_LIGHT_TEXT_COUNT ? '#ffffff' : '#0b1f4e';
+                const textColor = '#ffffff';
 
                 let midRad;
                 if (keys.length === 1) {
-                    slicesSvg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}"></circle>`;
+                    slicesSvg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" stroke="#ffffff" stroke-width="2"></circle>`;
                     midRad = (-90 * Math.PI) / 180;
                     labelsSvg += `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-size="13" font-weight="700" fill="${textColor}">${(percent * 100).toFixed(0)}%</text>`;
                 } else {
@@ -1291,7 +1291,7 @@
                     const x2 = cx + r * Math.cos(endRad);
                     const y2 = cy + r * Math.sin(endRad);
                     const largeArc = angle > 180 ? 1 : 0;
-                    slicesSvg += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${color}"></path>`;
+                    slicesSvg += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${color}" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"></path>`;
 
                     midRad = ((cumulativeAngle + angle / 2) * Math.PI) / 180;
                     // Skip on-slice label for very thin slices to avoid clutter; still shown in legend
