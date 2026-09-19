@@ -363,6 +363,25 @@
             border-bottom: none;
         }
 
+        .highlight-highest {
+            background: #fef2f2;
+            border-left: 3px solid var(--danger);
+            padding-left: 0.5rem;
+            font-weight: 700;
+            color: var(--danger);
+        }
+
+        .highlight-highest .highest-tag {
+            font-size: 0.7rem;
+            font-weight: 700;
+            background: var(--danger);
+            color: #fff;
+            border-radius: 4px;
+            padding: 0.05rem 0.35rem;
+            margin-left: 0.4rem;
+            text-transform: uppercase;
+        }
+
         .tools-box {
             background: #eff6ff;
             border: 1px solid #bfdbfe;
@@ -605,12 +624,14 @@
                 <input type="date" id="viewToDate" onchange="renderLedger()">
             </div>
 
-            <div class="filter-row" id="viewStatementTypeGroup">
-                <label><strong>Statement Type:</strong></label>
-                <select id="viewStatementType" onchange="applyStatementTypeVisibility()">
-                    <option value="detailed" selected>Detailed Statement</option>
-                    <option value="consolidated">Consolidated Statement</option>
-                </select>
+            <div class="toggle-group no-print" id="viewStatementTypeGroup">
+                <button type="button" class="btn btn-sm toggle-btn active" id="viewStmtDetailedBtn" onclick="setViewStatementType('detailed')">Detailed Statement</button>
+                <button type="button" class="btn btn-sm toggle-btn" id="viewStmtConsolidatedBtn" onclick="setViewStatementType('consolidated')">Consolidated Statement</button>
+            </div>
+
+            <div class="filter-row" id="viewSearchGroup">
+                <label for="viewSearchInput"><strong>Search:</strong></label>
+                <input type="text" id="viewSearchInput" placeholder="Type item / category to filter..." autocomplete="off" oninput="refreshViewModule()">
             </div>
             
             <div class="summary-box">
@@ -631,6 +652,7 @@
                 <div class="cat-breakdown-box">
                     <div class="cat-breakdown-title">Consolidated Expenses by Category</div>
                     <div id="categoryExpensesList"></div>
+                    <div id="categoryPieChart" style="margin-top: 0.75rem;"></div>
                 </div>
             </div>
 
@@ -693,12 +715,9 @@
                 <input type="date" id="pdfToDate" onchange="renderLedger()">
             </div>
 
-            <div class="filter-row no-print" id="pdfStatementTypeGroup">
-                <label><strong>Statement Type:</strong></label>
-                <select id="pdfStatementType" onchange="applyStatementTypeVisibility()">
-                    <option value="detailed" selected>Detailed Statement</option>
-                    <option value="consolidated">Consolidated Statement</option>
-                </select>
+            <div class="toggle-group no-print" id="pdfStatementTypeGroup">
+                <button type="button" class="btn btn-sm toggle-btn active" id="pdfStmtDetailedBtn" onclick="setPdfStatementType('detailed')">Detailed Statement</button>
+                <button type="button" class="btn btn-sm toggle-btn" id="pdfStmtConsolidatedBtn" onclick="setPdfStatementType('consolidated')">Consolidated Statement</button>
             </div>
 
             <div style="margin-bottom: 1rem;">
@@ -725,6 +744,7 @@
                 <div class="cat-breakdown-box">
                     <div class="cat-breakdown-title">Consolidated Category Expenses</div>
                     <div id="pdfCategoryExpensesList"></div>
+                    <div id="pdfCategoryPieChart" style="margin-top: 0.75rem;"></div>
                 </div>
             </div>
 
@@ -1138,14 +1158,148 @@
             renderLedger();
         }
 
-        // ===== STATEMENT TYPE (Detailed / Consolidated) TOGGLE (isolated module) =====
-        function applyStatementTypeVisibility() {
-            const viewType = document.getElementById('viewStatementType').value;
-            document.getElementById('viewTransactionsRecordBlock').style.display = (viewType === 'consolidated') ? 'none' : '';
+        // ===== STATEMENT TYPE (Detailed / Consolidated) TOGGLE - PDF (isolated module) =====
+        let pdfStatementType = 'detailed';
 
-            const pdfType = document.getElementById('pdfStatementType').value;
-            document.getElementById('pdfExpensesDetailsBlock').style.display = (pdfType === 'consolidated') ? 'none' : '';
-            document.getElementById('pdfReceiptsDetailsBlock').style.display = (pdfType === 'consolidated') ? 'none' : '';
+        function setPdfStatementType(type) {
+            pdfStatementType = type;
+            document.getElementById('pdfStmtDetailedBtn').classList.toggle('active', type === 'detailed');
+            document.getElementById('pdfStmtConsolidatedBtn').classList.toggle('active', type === 'consolidated');
+            applyStatementTypeVisibility();
+        }
+
+        function applyStatementTypeVisibility() {
+            const isConsolidated = (pdfStatementType === 'consolidated');
+            document.getElementById('pdfExpensesDetailsBlock').style.display = isConsolidated ? 'none' : '';
+            document.getElementById('pdfReceiptsDetailsBlock').style.display = isConsolidated ? 'none' : '';
+        }
+
+        // ===== VIEW MODULE: Statement Type + Live Search + Highest-Category Highlight (isolated module) =====
+        let viewStatementType = 'detailed';
+
+        function setViewStatementType(type) {
+            viewStatementType = type;
+            document.getElementById('viewStmtDetailedBtn').classList.toggle('active', type === 'detailed');
+            document.getElementById('viewStmtConsolidatedBtn').classList.toggle('active', type === 'consolidated');
+            refreshViewModule();
+        }
+
+        function refreshViewModule() {
+            const isConsolidated = (viewStatementType === 'consolidated');
+            const searchText = document.getElementById('viewSearchInput').value.trim().toLowerCase();
+
+            const viewBody = document.getElementById('viewTableBody');
+            const rows = Array.from(viewBody.getElementsByTagName('tr'));
+
+            const modeTotals = {};
+            const catTotals = {};
+            let totalReceipts = 0;
+            let totalExpenses = 0;
+
+            rows.forEach(row => {
+                const matchesSearch = !searchText || row.dataset.item.includes(searchText);
+                row.style.display = matchesSearch ? '' : 'none';
+
+                if (matchesSearch) {
+                    const amt = parseFloat(row.dataset.amount) || 0;
+                    if (row.dataset.type === 'Expense') {
+                        totalExpenses += amt;
+                        modeTotals[row.dataset.mode] = (modeTotals[row.dataset.mode] || 0) + amt;
+                        const catLabel = row.cells[2].textContent;
+                        catTotals[catLabel] = (catTotals[catLabel] || 0) + amt;
+                    } else {
+                        totalReceipts += amt;
+                    }
+                }
+            });
+
+            // Table visibility: Detailed = always visible. Consolidated = hidden unless a search is drilling down.
+            const showTable = !isConsolidated || (searchText.length > 0);
+            document.getElementById('viewTransactionsRecordBlock').style.display = showTable ? '' : 'none';
+
+            document.getElementById('accumulatedReceipts').textContent = `₹${totalReceipts.toFixed(2)}`;
+            document.getElementById('accumulatedExpenses').textContent = `₹${totalExpenses.toFixed(2)}`;
+
+            renderBreakdowns('modeExpensesList', modeTotals);
+            renderBreakdowns('categoryExpensesList', catTotals);
+            highlightHighestCategory('categoryExpensesList', catTotals);
+            drawCategoryPieChart('categoryPieChart', catTotals);
+        }
+
+        function highlightHighestCategory(containerId, catTotals) {
+            const keys = Object.keys(catTotals);
+            if (keys.length < 2) return; // Only meaningful when comparing 2+ categories
+
+            let topKey = keys[0];
+            keys.forEach(key => {
+                if (catTotals[key] > catTotals[topKey]) topKey = key;
+            });
+
+            const container = document.getElementById(containerId);
+            Array.from(container.children).forEach(item => {
+                const label = item.querySelector('span');
+                if (label && label.textContent === topKey) {
+                    item.classList.add('highlight-highest');
+                    const tag = document.createElement('span');
+                    tag.className = 'highest-tag';
+                    tag.textContent = 'Highest';
+                    label.appendChild(tag);
+                }
+            });
+        }
+
+        // ===== CATEGORY PIE / CIRCLE CHART (isolated module, reused for View + PDF) =====
+        const PIE_CHART_COLORS = ['#dc2626', '#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#ea580c', '#4338ca'];
+
+        function drawCategoryPieChart(containerId, dataObj) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const keys = Object.keys(dataObj);
+            const total = keys.reduce((sum, k) => sum + dataObj[k], 0);
+
+            if (keys.length === 0 || total <= 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            const cx = 60, cy = 60, r = 55;
+            let cumulativeAngle = -90; // start at top
+            let slicesSvg = '';
+            let legendHtml = '';
+
+            keys.forEach((key, i) => {
+                const value = dataObj[key];
+                const percent = value / total;
+                const angle = percent * 360;
+                const color = PIE_CHART_COLORS[i % PIE_CHART_COLORS.length];
+
+                if (keys.length === 1) {
+                    slicesSvg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}"></circle>`;
+                } else {
+                    const startRad = (cumulativeAngle * Math.PI) / 180;
+                    const endRad = ((cumulativeAngle + angle) * Math.PI) / 180;
+                    const x1 = cx + r * Math.cos(startRad);
+                    const y1 = cy + r * Math.sin(startRad);
+                    const x2 = cx + r * Math.cos(endRad);
+                    const y2 = cy + r * Math.sin(endRad);
+                    const largeArc = angle > 180 ? 1 : 0;
+                    slicesSvg += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${color}"></path>`;
+                    cumulativeAngle += angle;
+                }
+
+                legendHtml += `
+                    <div style="display:flex; align-items:center; gap:0.35rem; font-size:0.78rem; padding:0.15rem 0;">
+                        <span style="width:10px; height:10px; border-radius:2px; background:${color}; flex-shrink:0; display:inline-block;"></span>
+                        <span>${key} — ₹${value.toFixed(2)} (${(percent * 100).toFixed(1)}%)</span>
+                    </div>`;
+            });
+
+            container.innerHTML = `
+                <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+                    <svg viewBox="0 0 120 120" width="110" height="110" style="flex-shrink:0;">${slicesSvg}</svg>
+                    <div style="flex:1; min-width:140px;">${legendHtml}</div>
+                </div>`;
         }
 
         function saveToStorage() {
@@ -1454,6 +1608,8 @@
         });
 
         function executeSaveEntry(entry) {
+            const wasNewEntry = (editingIndex === null);
+
             if (editingIndex !== null) {
                 ledgerEntries[editingIndex] = entry;
                 editingIndex = null;
@@ -1468,6 +1624,11 @@
             entryDateInput.valueAsDate = new Date();
             handleTypeChange();
             renderLedger();
+
+            // After adding a new entry (not editing), move cursor straight into Category field for the next entry
+            if (wasNewEntry) {
+                itemSearchInput.focus();
+            }
         }
 
         // ===== DELETE ENTRY POPUP (isolated module) =====
@@ -1686,6 +1847,10 @@
                     }
 
                     const trView = document.createElement('tr');
+                    trView.dataset.item = entry.item.toLowerCase();
+                    trView.dataset.type = entry.type;
+                    trView.dataset.mode = entry.mode;
+                    trView.dataset.amount = entry.amount;
                     trView.innerHTML = `
                         <td>${displayDate}</td>
                         <td class="${isExpense ? 'tag-expense' : 'tag-receipt'}">${entry.type}</td>
@@ -1733,6 +1898,9 @@
             renderBreakdowns('pdfModeExpensesList', pdfExpModeTotals);
             renderBreakdowns('categoryExpensesList', expCatTotals);
             renderBreakdowns('pdfCategoryExpensesList', pdfExpCatTotals);
+            drawCategoryPieChart('pdfCategoryPieChart', pdfExpCatTotals);
+
+            refreshViewModule();
         }
 
         function renderBreakdowns(containerId, dataObj) {
