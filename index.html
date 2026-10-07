@@ -474,6 +474,26 @@
             }
         }
 
+        /* ===== YEARLY REPORT (isolated) ===== */
+        .yearly-print-head { display: none; }
+        .yearly-table { font-size: 0.78rem; min-width: 900px; }
+        .yearly-table th, .yearly-table td { text-align: right; white-space: nowrap; padding: 0.4rem 0.5rem; }
+        .yearly-table th:first-child, .yearly-table td:first-child { text-align: left; position: sticky; left: 0; background: #fff; z-index: 1; font-weight: 600; }
+        .yearly-table .y-sub td { text-align: left; background: #eef2f7; color: var(--primary); font-weight: 700; }
+        .yearly-table .y-total td { font-weight: 700; background: #f8fafc; }
+        .yearly-table td.yearly-high { background: #fde68a; font-weight: 700; }
+        .yearly-table td.y-rowtotal { font-weight: 700; }
+        @media print {
+            #yearlySection { display: none !important; }
+            body.print-yearly #yearlySection { display: block !important; }
+            body.print-yearly #pdfViewSection, body.print-yearly #viewSection { display: none !important; }
+            body.print-yearly .yearly-print-head { display: block !important; margin-bottom: 0.8rem; }
+            body.print-yearly .yearly-table { min-width: 0; font-size: 9px; }
+            body.print-yearly .yearly-table th, body.print-yearly .yearly-table td { padding: 3px 4px; position: static; }
+            body.print-yearly .yearly-table td.yearly-high { background: #fde68a !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body.print-yearly .yearly-table .y-sub td { background: #eef2f7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+
         /* ===== REPORT EXPORT (isolated): print the View screen as PDF ===== */
         .view-print-head { display: none; }
         @media print {
@@ -837,6 +857,35 @@
             </div>
         </section>
 
+        <!-- YEARLY MONTH-WISE REPORT SECTION -->
+        <section id="yearlySection" class="view-section card">
+            <div class="card-title">
+                <span>Yearly Month-wise Report</span>
+                <div class="btn-group-responsive no-print">
+                    <button class="btn btn-sm" onclick="exportYearlyPdf()">🖨️ PDF</button>
+                    <button class="btn btn-sm btn-success" onclick="exportYearlyExcel()">📊 Excel</button>
+                </div>
+            </div>
+
+            <div class="yearly-print-head" id="yearlyPrintHead">
+                <h3 style="color: var(--primary);">Home Ledger - Yearly Report</h3>
+                <p style="font-size: 0.85rem; color: #334155; font-weight: 600;">A.S.M Consultancy Services</p>
+                <p style="font-size: 0.85rem; color: var(--primary); font-weight: bold; margin-top: 2px;" id="yearlyPrintYear"></p>
+            </div>
+
+            <div class="form-group no-print" style="max-width: 160px;">
+                <label for="yearlyYearInput">Year</label>
+                <input type="number" id="yearlyYearInput" min="2000" max="2100" oninput="renderYearlyReport()">
+            </div>
+
+            <div class="table-container">
+                <table id="yearlyTable" class="yearly-table">
+                    <thead id="yearlyHead"></thead>
+                    <tbody id="yearlyBody"></tbody>
+                </table>
+            </div>
+        </section>
+
         <!-- BACKUP / RESTORE SECTION -->
         <section id="backupSection" class="view-section card">
             <div class="card-title">Backup & Restore Data</div>
@@ -1069,6 +1118,7 @@
         <button class="nav-item" onclick="switchTab('modifySection', this)">✏️ Modify</button>
         <button class="nav-item" onclick="switchTab('viewSection', this)">📊 View</button>
         <button class="nav-item" id="navPdfCreateBtn" onclick="switchTab('pdfViewSection', this)">📄 PDF Create</button>
+        <button class="nav-item" onclick="switchTab('yearlySection', this)">📅 Yearly</button>
         <button class="nav-item" onclick="switchTab('backupSection', this)">💾 Backup/Restore</button>
     </nav>
 
@@ -1131,6 +1181,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('navPdfCreateBtn').style.display = SHOW_PDF_CREATE_MENU ? '' : 'none';
+            document.getElementById('yearlyYearInput').value = new Date().getFullYear();
             const today = new Date();
             entryDateInput.valueAsDate = today;
             
@@ -1471,6 +1522,7 @@
             setCurrentMonthYear('pdfMonthSelect', 'pdfYearInput');
             setViewFilterMode('month');
             setPdfFilterMode('month');
+            document.getElementById('yearlyYearInput').value = new Date().getFullYear();
         }
 
         function switchTab(sectionId, element) {
@@ -1962,6 +2014,167 @@
             highlightHighestCategory('pdfCategoryExpensesList', pdfExpCatTotals);
 
             refreshViewModule();
+            renderYearlyReport();
+        }
+
+        // ===== YEARLY MONTH-WISE REPORT MODULE (isolated) =====
+        function getYearlyYear() {
+            const v = parseInt(document.getElementById('yearlyYearInput').value, 10);
+            return isNaN(v) ? new Date().getFullYear() : v;
+        }
+
+        function buildYearlyData(year) {
+            const zero = () => new Array(12).fill(0);
+            const data = { income: zero(), expense: zero(), modes: {}, cats: {} };
+            ledgerEntries.forEach(entry => {
+                const d = String(entry.date || '');
+                if (parseInt(d.slice(0, 4), 10) !== year) return;
+                const m = parseInt(d.slice(5, 7), 10) - 1;
+                const amt = parseFloat(entry.amount) || 0;
+                if (m < 0 || m > 11) return;
+                if (entry.type === 'Expense') {
+                    data.expense[m] += amt;
+                    const mode = entry.mode || 'Other';
+                    const cat = entry.item || 'Other';
+                    (data.modes[mode] = data.modes[mode] || zero())[m] += amt;
+                    (data.cats[cat] = data.cats[cat] || zero())[m] += amt;
+                } else {
+                    data.income[m] += amt;
+                }
+            });
+            return data;
+        }
+
+        function fmtYearly(v) {
+            return v ? v.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '–';
+        }
+
+        function renderYearlyReport() {
+            const head = document.getElementById('yearlyHead');
+            const body = document.getElementById('yearlyBody');
+            if (!head || !body) return;
+            const year = getYearlyYear();
+            const data = buildYearlyData(year);
+            const sum = arr => arr.reduce((a, b) => a + b, 0);
+
+            head.innerHTML = '';
+            body.innerHTML = '';
+            const htr = document.createElement('tr');
+            ['Particulars', ...monthNames.map(n => n.slice(0, 3)), 'Total'].forEach(t => {
+                const th = document.createElement('th');
+                th.textContent = t;
+                htr.appendChild(th);
+            });
+            head.appendChild(htr);
+
+            function addRow(label, values, cls, highlight) {
+                const tr = document.createElement('tr');
+                if (cls) tr.className = cls;
+                const first = document.createElement('td');
+                first.textContent = label;
+                tr.appendChild(first);
+                const max = highlight ? Math.max(...values) : 0;
+                values.forEach(v => {
+                    const td = document.createElement('td');
+                    td.textContent = fmtYearly(v);
+                    if (highlight && max > 0 && v === max) td.className = 'yearly-high';
+                    tr.appendChild(td);
+                });
+                const tot = document.createElement('td');
+                tot.className = 'y-rowtotal';
+                tot.textContent = fmtYearly(sum(values));
+                tr.appendChild(tot);
+                body.appendChild(tr);
+            }
+            function addSub(label) {
+                const tr = document.createElement('tr');
+                tr.className = 'y-sub';
+                const td = document.createElement('td');
+                td.colSpan = 14;
+                td.textContent = label;
+                tr.appendChild(td);
+                body.appendChild(tr);
+            }
+
+            if (sum(data.income) === 0 && sum(data.expense) === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 14;
+                td.style.textAlign = 'center';
+                td.textContent = `No entries for ${year}`;
+                tr.appendChild(td);
+                body.appendChild(tr);
+                return;
+            }
+
+            addRow('Total Income', data.income, 'y-total');
+            addRow('Total Expenses', data.expense, 'y-total');
+
+            const modeOrder = ['Cash', 'UPI', 'Bank Transfer'];
+            const modes = Object.keys(data.modes).sort((a, b) => {
+                const ia = modeOrder.indexOf(a), ib = modeOrder.indexOf(b);
+                return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+            });
+            if (modes.length) {
+                addSub('Expenses by Payment Mode');
+                modes.forEach(m => addRow(m, data.modes[m]));
+            }
+
+            const cats = Object.keys(data.cats).sort((a, b) => sum(data.cats[b]) - sum(data.cats[a]) || a.localeCompare(b));
+            if (cats.length) {
+                addSub('Expenses by Category (highest month highlighted)');
+                cats.forEach(c => addRow(c, data.cats[c], '', true));
+            }
+        }
+
+        function exportYearlyPdf() {
+            renderYearlyReport();
+            document.getElementById('yearlyPrintYear').textContent = `Year ${getYearlyYear()}`;
+            const originalTitle = document.title;
+            document.title = `Home ledger yearly ${getYearlyYear()}`;
+            const pageStyle = document.createElement('style');
+            pageStyle.id = 'yearlyPageStyle';
+            pageStyle.textContent = '@page { size: landscape; margin: 10mm; }';
+            document.head.appendChild(pageStyle);
+            document.body.classList.remove('print-view');
+            document.body.classList.add('print-yearly');
+            window.addEventListener('afterprint', () => {
+                document.body.classList.remove('print-yearly');
+                pageStyle.remove();
+                document.title = originalTitle;
+            }, { once: true });
+            window.print();
+        }
+
+        function exportYearlyExcel() {
+            renderYearlyReport();
+            const esc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const num = v => { const n = parseFloat(String(v).replace(/[,\s]/g, '')); return isNaN(n) ? '' : n; };
+            let rows = `<tr><td colspan="14"><b>Home Ledger - Yearly Report</b></td></tr>`
+                     + `<tr><td colspan="14">A.S.M Consultancy Services</td></tr>`
+                     + `<tr><td colspan="14"><b>Year ${getYearlyYear()}</b></td></tr><tr><td></td></tr>`;
+            rows += '<tr>' + Array.from(document.querySelectorAll('#yearlyHead th')).map(th => `<td><b>${esc(th.textContent)}</b></td>`).join('') + '</tr>';
+            Array.from(document.querySelectorAll('#yearlyBody tr')).forEach(tr => {
+                const cells = Array.from(tr.cells);
+                if (cells.length === 1) {
+                    rows += `<tr><td colspan="14"><b>${esc(cells[0].textContent)}</b></td></tr>`;
+                    return;
+                }
+                rows += '<tr>' + cells.map((td, i) => {
+                    if (i === 0) return `<td style="mso-number-format:'\\@'">${esc(td.textContent)}</td>`;
+                    const hi = td.classList.contains('yearly-high') ? ' style="background:#fde68a;font-weight:bold"' : '';
+                    return `<td${hi}>${num(td.textContent)}</td>`;
+                }).join('') + '</tr>';
+            });
+            const html = '\ufeff<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table>' + rows + '</table></body></html>';
+            const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `home-ledger-yearly-${getYearlyYear()}.xls`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
         }
 
         function renderBreakdowns(containerId, dataObj) {
@@ -2014,6 +2227,7 @@
         }
 
         function exportScreenPdf(key) {
+            document.body.classList.remove('print-yearly');
             if (key === 'pdf') {
                 document.body.classList.remove('print-view');
                 triggerPrint();
