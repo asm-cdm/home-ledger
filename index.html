@@ -512,6 +512,12 @@
 
     <div class="container">
 
+        <!-- PAST YEAR VIEW BANNER (isolated Past Years module) -->
+        <div id="pastBanner" style="display: none;"></div>
+
+        <!-- YEAR BANNER (isolated Year Close module) -->
+        <div id="yearBanner" style="display: none;"></div>
+
         <!-- CREATE SECTION -->
         <section id="createSection" class="view-section active card">
             <div class="card-title">
@@ -890,6 +896,60 @@
         <section id="backupSection" class="view-section card">
             <div class="card-title">Backup & Restore Data</div>
 
+            <!-- GOOGLE DRIVE BACKUP BOX (isolated module) -->
+            <div class="tools-box" id="driveBox">
+                <h4 style="margin-bottom: 0.5rem; color: var(--primary);">☁️ Google Drive Backup</h4>
+                <div id="driveQuietRow" style="display: none;">
+                    <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.75rem;">Not enabled. An optional add-on that saves your data to your own Google Drive every day.</p>
+                    <button type="button" class="btn btn-secondary" onclick="driveOpenSetup()">Set up Drive backup</button>
+                </div>
+                <div id="driveMain">
+                <p id="driveStatusLine" style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem;"></p>
+                <p id="driveLastLine" style="font-size: 0.85rem; color: #475569; margin-bottom: 0.25rem;"></p>
+                <p id="driveAutoLine" style="font-size: 0.75rem; color: #64748b; margin-bottom: 0.75rem;"></p>
+                <button type="button" id="driveBackupBtn" class="btn btn-success" onclick="driveBackupNow(false)">☁️ Backup to Google Drive</button>
+                </div>
+
+                <details id="driveSettingsBox" style="margin-top: 1rem;">
+                    <summary style="cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--primary);">⚙️ Drive Settings (link &amp; key)</summary>
+                    <div style="margin-top: 0.75rem;">
+                        <div class="form-group">
+                            <label for="driveUrlInput">Script Link</label>
+                            <input type="password" id="driveUrlInput" placeholder="Paste your script link" autocomplete="new-password" autocapitalize="off" spellcheck="false">
+                        </div>
+                        <div class="form-group">
+                            <label for="driveKeyInput">Secret Key</label>
+                            <input type="password" id="driveKeyInput" placeholder="Paste your secret key" autocomplete="new-password" autocapitalize="off" spellcheck="false">
+                        </div>
+                        <button type="button" id="driveRevealBtn" class="btn btn-secondary" style="margin-bottom: 0.5rem;" onclick="driveToggleReveal()">👁 Show link &amp; key</button>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button type="button" class="btn" onclick="driveSaveSettings()">Save</button>
+                            <button type="button" class="btn btn-secondary" id="driveTestBtn" onclick="driveTestConnection()">Test Connection</button>
+                            <button type="button" class="btn btn-secondary" id="driveCancelBtn" style="display: none;" onclick="driveCloseSetup()">Cancel</button>
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- YEAR CLOSE BOX (isolated module) -->
+            <div class="tools-box" id="yearCloseBox">
+                <h4 style="margin-bottom: 0.5rem; color: var(--primary);">📅 Year Close</h4>
+                <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.75rem;">Saves a finished year safely, then removes it from this app. Closed years cannot get new entries.</p>
+                <div id="yearCloseList"></div>
+            </div>
+
+            <!-- PAST YEARS BOX (isolated module) -->
+            <div class="tools-box" id="pastYearsBox">
+                <h4 style="margin-bottom: 0.5rem; color: var(--primary);">📂 Past Years &amp; Restore</h4>
+                <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.75rem;">View a year read-only (reports, PDF, Excel) without touching your data. For a year that is still open, Restore brings it back into the app; other years are not changed.</p>
+                <div id="pastDriveArea" style="display: none; margin-bottom: 0.75rem;">
+                    <button type="button" class="btn btn-secondary" id="pastDriveBtn" onclick="pastLoadDriveList()">☁️ View / Restore from Google Drive</button>
+                    <div id="pastDriveList" style="margin-top: 0.75rem;"></div>
+                </div>
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('pastFileInput').click()">📁 View from file</button>
+                <input type="file" id="pastFileInput" accept=".json,application/json" style="display: none;" onchange="pastOpenFromFile()">
+            </div>
+
             <div class="tools-box">
                 <h4 style="margin-bottom: 0.5rem; color: var(--primary);">💾 Export / Backup Data</h4>
                 <p style="font-size: 0.8rem; color: #475569; margin-bottom: 1rem;">
@@ -1108,6 +1168,14 @@
         </div>
     </div>
 
+    <div id="yearCloseModal" class="modal-overlay">
+        <div class="modal" style="max-width: 420px; text-align: center;">
+            <h3 id="ycTitle" style="margin-bottom: 0.5rem; font-size: 1.15rem; color: var(--primary);"></h3>
+            <p id="ycMessage" style="font-size: 0.9rem; color: #475569; margin-bottom: 1.25rem; line-height: 1.4;"></p>
+            <div id="ycButtons" style="display: flex; gap: 0.5rem; justify-content: center;"></div>
+        </div>
+    </div>
+
     <footer>
         <div>Your data stays on this device - Backup regularly to stay safe.</div>
         <div>Powered by A.S.M Consultancy Services</div>
@@ -1234,10 +1302,11 @@
         let pdfFilterMode = 'month';
 
         function setCurrentMonthYear(monthSelectId, yearInputId) {
+            const p = (typeof pastView !== 'undefined' && pastView) ? pastView.period : null;   // past-year view: default to that year
             const today = new Date();
-            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const mm = p ? p.m : String(today.getMonth() + 1).padStart(2, '0');
             document.getElementById(monthSelectId).value = mm;
-            document.getElementById(yearInputId).value = today.getFullYear();
+            document.getElementById(yearInputId).value = p ? p.y : today.getFullYear();
         }
 
         // ===== DATE RANGE HELPERS (isolated): range applies only in Date Range mode; values are never cleared =====
@@ -1392,9 +1461,11 @@
         }
 
         function saveToStorage() {
+            if (typeof pastView !== 'undefined' && pastView) return;   // view-only: never write
             localStorage.setItem('asm_expenseItems', JSON.stringify(expenseItems));
             localStorage.setItem('asm_receiptItems', JSON.stringify(receiptItems));
             localStorage.setItem('asm_ledgerEntries', JSON.stringify(ledgerEntries));
+            if (typeof yearRenderList === 'function') yearRenderList();
         }
 
         function getCurrentCategoryList() {
@@ -1493,6 +1564,7 @@
             localStorage.removeItem('asm_expenseItems');
             localStorage.removeItem('asm_receiptItems');
             localStorage.removeItem('asm_ledgerEntries');
+            localStorage.removeItem('asm_closedYears');
             
             expenseItems = [...defaultExpenseCategories];
             receiptItems = [...defaultReceiptCategories];
@@ -1505,6 +1577,7 @@
 
             handleTypeChange();
             renderLedger();
+            yearRenderList();
 
             document.getElementById('resetConfirmState').style.display = 'none';
             document.getElementById('resetSuccessState').style.display = 'block';
@@ -1522,10 +1595,15 @@
             setCurrentMonthYear('pdfMonthSelect', 'pdfYearInput');
             setViewFilterMode('month');
             setPdfFilterMode('month');
-            document.getElementById('yearlyYearInput').value = new Date().getFullYear();
+            document.getElementById('yearlyYearInput').value = (typeof pastView !== 'undefined' && pastView) ? pastView.period.y : new Date().getFullYear();
         }
 
         function switchTab(sectionId, element) {
+            // Past-year view is read-only: Create, Modify and Backup menus stay closed until Exit.
+            if (typeof pastView !== 'undefined' && pastView && (sectionId === 'createSection' || sectionId === 'modifySection' || sectionId === 'backupSection')) {
+                showAppWarning('View only', 'You are viewing ' + pastView.label + '. Press Exit at the top to go back to your own data.');
+                return;
+            }
             // Moving to a different menu gives View and PDF a fresh start (current month, no date range).
             const prevSection = document.querySelector('.view-section.active');
             if (prevSection && prevSection.id !== sectionId) resetViewPdfFilters();
@@ -1713,6 +1791,8 @@
                 notes: document.getElementById('entryNotes').value
             };
 
+            if (yearGuard(entry.date)) return;
+
             if (isFutureDate(entry.date)) {
                 pendingSaveEntry = entry;
                 document.getElementById('futureDateModal').classList.add('active');
@@ -1864,6 +1944,8 @@
                 showAppWarning("Amount Required", "Please enter a valid amount.");
                 return;
             }
+
+            if (yearGuard(document.getElementById('editEntryDate').value)) return;
 
             ledgerEntries[editingEntryIndex] = {
                 date: document.getElementById('editEntryDate').value,
@@ -2395,6 +2477,18 @@
                 try {
                     const importedData = JSON.parse(e.target.result);
                     
+                    if (importedData.app && importedData.app !== 'home-ledger') {
+                        fileInput.value = '';
+                        showAppWarning('Restore', 'This file is from another app, not Home Ledger.');
+                        return;
+                    }
+
+                    if (importedData.ledgerEntries && importedData.app === 'home-ledger' && importedData.year) {
+                        fileInput.value = '';
+                        restoreYearFlow(importedData, 'file');
+                        return;
+                    }
+
                     if (importedData.ledgerEntries) {
                         expenseItems = importedData.expenseItems || defaultExpenseCategories;
                         receiptItems = importedData.receiptItems || defaultReceiptCategories;
@@ -2413,6 +2507,965 @@
             };
             reader.readAsText(file);
         }
+
+        // Past Years view-only state (see PAST YEARS MODULE). null = normal mode.
+        let pastView = null;
+
+        // ===================================================================
+        // GOOGLE DRIVE BACKUP MODULE  (isolated - every function is separate)
+        // File in Drive: home-ledger-<year>.json  (overwritten on each backup)
+        // ===================================================================
+        const DRIVE_APP_NAME  = 'home-ledger';
+        const DRIVE_AUTO_HOUR = 20;   // 8 PM
+        const DRIVE_STORE = {
+            url:  'asm_drive_url',
+            key:  'asm_drive_key',
+            last: 'asm_drive_lastSuccess',   // ms timestamp of last successful Drive backup
+            auto: 'asm_drive_autoOn'         // '1' after first successful Drive backup
+        };
+        let driveBusy = false;
+        let driveLastAttempt = 0;
+        let driveSetupOpen = false;
+
+        // ---- small storage helpers ----
+        function driveRead(k) {
+            try { return localStorage.getItem(k) || ''; } catch (e) { return ''; }
+        }
+        function driveWrite(k, v) {
+            try { localStorage.setItem(k, v); return true; } catch (e) { return false; }
+        }
+
+        // ---- settings ----
+        function driveGetSettings() {
+            return { url: driveRead(DRIVE_STORE.url), key: driveRead(DRIVE_STORE.key) };
+        }
+        function driveIsConnected() {
+            const s = driveGetSettings();
+            return !!(s.url && s.key);
+        }
+        function driveUrlLooksValid(url) {
+            return /^https:\/\/script\.google\.com\/(a\/macros\/[^\/\s]+\/|macros\/)s\/[^\/\s]+\/exec$/.test(url);
+        }
+        function driveLastSuccess() {
+            return parseInt(driveRead(DRIVE_STORE.last), 10) || 0;
+        }
+        function driveAutoEnabled() {
+            return driveRead(DRIVE_STORE.auto) === '1';
+        }
+        // Fallback year (used only for an entry with a missing/invalid date)
+        function driveActiveYear() {
+            return new Date().getFullYear();
+        }
+
+        function driveFormatTime(ms) {
+            const d = new Date(ms);
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            let h = d.getHours();
+            const ap = h >= 12 ? 'PM' : 'AM';
+            h = h % 12 || 12;
+            const mi = String(d.getMinutes()).padStart(2, '0');
+            return `${dd}/${mm}/${d.getFullYear()} ${h}:${mi} ${ap}`;
+        }
+
+        function driveSaveSettings() {
+            const oldUrl = driveRead(DRIVE_STORE.url);
+            const url = document.getElementById('driveUrlInput').value.trim();
+            const key = document.getElementById('driveKeyInput').value.trim();
+
+            if (!url && !key) {
+                driveWrite(DRIVE_STORE.url, '');
+                driveWrite(DRIVE_STORE.key, '');
+                driveWrite(DRIVE_STORE.auto, '0');
+                driveSetupOpen = false;
+                driveRenderStatus('');
+                showAppWarning('Drive Settings', 'Drive link and key removed. Drive backup is now off.', 'ℹ️');
+                return;
+            }
+            if (!driveUrlLooksValid(url)) {
+                showAppWarning('Drive Settings', 'The link must start with https://script.google.com and end with /exec. Please copy the Web app link again.');
+                return;
+            }
+            if (!key) {
+                showAppWarning('Drive Settings', 'Please enter the secret key.');
+                return;
+            }
+            driveWrite(DRIVE_STORE.url, url);
+            driveWrite(DRIVE_STORE.key, key);
+            // New Drive account/link: auto backup waits for a first manual backup
+            if (url !== oldUrl) {
+                driveWrite(DRIVE_STORE.auto, '0');
+                driveWrite(DRIVE_STORE.last, '0');
+            }
+            driveRenderStatus('');
+            const det = document.getElementById('driveSettingsBox');
+            if (det) det.open = false;   // hide link & key after saving
+            showAppWarning('Drive Settings', 'Saved. Link and key are now hidden. Open Drive Settings and press Test Connection to check.', '✅');
+        }
+
+        // ---- network ----
+        async function drivePost(payload, timeoutMs) {
+            const s = driveGetSettings();
+            if (!s.url || !s.key) {
+                return { ok: false, error: 'Drive is not connected. Save the link and key first.' };
+            }
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), timeoutMs || 30000);
+            try {
+                const res = await fetch(s.url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(Object.assign({ key: s.key }, payload)),
+                    signal: ctrl.signal
+                });
+                let json;
+                try { json = await res.json(); }
+                catch (e) {
+                    return { ok: false, error: 'The link is not responding properly. Check that the script is deployed with access "Anyone" and the link ends with /exec.' };
+                }
+                if (json && json.ok === false && json.error === 'Wrong key') {
+                    json.error = 'The secret key does not match. Please check the key.';
+                }
+                return json || { ok: false, error: 'No reply from Drive.' };
+            } catch (e) {
+                if (e && e.name === 'AbortError') {
+                    return { ok: false, error: 'Timed out. Check your internet and try again.' };
+                }
+                return { ok: false, error: 'Could not reach Google Drive. Check your internet and the link.' };
+            } finally {
+                clearTimeout(timer);
+            }
+        }
+
+        // ---- backup ----
+        // Year of one entry = first 4 characters of its date (YYYY-MM-DD)
+        function driveEntryYear(entry) {
+            const y = String((entry && entry.date) || '').slice(0, 4);
+            return /^\d{4}$/.test(y) ? y : String(driveActiveYear());
+        }
+        // { '2026': [entries...], '2027': [entries...] }
+        function driveGroupByYear() {
+            const groups = {};
+            (ledgerEntries || []).forEach(function (e) {
+                const y = driveEntryYear(e);
+                (groups[y] = groups[y] || []).push(e);
+            });
+            return groups;
+        }
+        // One file = one year of entries + the category lists
+        function driveBuildPayload(year, entries) {
+            return {
+                version: '1.2',
+                app: DRIVE_APP_NAME,
+                year: Number(year),
+                exportDate: new Date().toISOString(),
+                expenseItems: expenseItems,
+                receiptItems: receiptItems,
+                ledgerEntries: entries
+            };
+        }
+
+        function driveSetBusyUI(busy) {
+            const b = document.getElementById('driveBackupBtn');
+            if (!b) return;
+            b.disabled = busy;
+            b.textContent = busy ? '⏳ Backing up...' : '☁️ Backup to Google Drive';
+        }
+
+        async function driveBackupNow(isAuto) {
+            if (driveBusy) return;
+            if (pastView) {
+                if (!isAuto) showAppWarning('Drive Backup', 'You are viewing ' + pastView.label + ' (view only). Press Exit first.');
+                return;
+            }
+            if (!driveIsConnected()) {
+                if (!isAuto) showAppWarning('Drive Backup', 'Drive is not connected. Open Drive Settings and save your link and key first.');
+                return;
+            }
+            // Never replace the Drive file with empty data (e.g. new phone / cleared memory)
+            if (!ledgerEntries || ledgerEntries.length === 0) {
+                if (!isAuto) showAppWarning('Drive Backup', 'No entries to back up. If this is a new phone, restore your data first so the Drive file is not replaced with an empty one.');
+                return;
+            }
+
+            driveBusy = true;
+            driveSetBusyUI(true);
+
+            // One backup file per year (home-ledger-2026.json, home-ledger-2027.json ...)
+            const groups = driveGroupByYear();
+            const years = Object.keys(groups).sort();
+            const saved = [];
+            let failMsg = '';
+            for (const y of years) {
+                const r = await drivePost({
+                    action: 'backup',
+                    app: DRIVE_APP_NAME,
+                    year: y,
+                    data: driveBuildPayload(y, groups[y])
+                });
+                if (r && r.ok) {
+                    saved.push(r.file || (DRIVE_APP_NAME + '-' + y + '.json'));
+                } else {
+                    failMsg = (r && r.error) ? r.error : 'Backup failed.';
+                    break;
+                }
+            }
+            driveBusy = false;
+            driveSetBusyUI(false);
+
+            // Success only when every year file is confirmed by Drive
+            if (!failMsg && saved.length > 0) {
+                driveWrite(DRIVE_STORE.last, String(Date.now()));
+                driveWrite(DRIVE_STORE.auto, '1');
+                driveRenderStatus('');
+                if (!isAuto) showAppWarning('Drive Backup', 'Backup saved to Google Drive (' + saved.join(', ') + ').', '✅');
+            } else {
+                const msg = (failMsg || 'Backup failed.') + (saved.length ? ' Saved before the error: ' + saved.join(', ') + '.' : '');
+                driveRenderStatus('Backup failed: ' + failMsg);
+                if (!isAuto) showAppWarning('Drive Backup failed', msg);
+            }
+        }
+
+        // ---- connection test ----
+        async function driveTestConnection() {
+            if (!driveIsConnected()) {
+                showAppWarning('Drive Test', 'Please save the link and key first.');
+                return;
+            }
+            const btn = document.getElementById('driveTestBtn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Testing...'; }
+            const r = await drivePost({ action: 'ping' }, 20000);
+            if (btn) { btn.disabled = false; btn.textContent = 'Test Connection'; }
+            if (r && r.ok) {
+                driveRenderStatus('');
+                showAppWarning('Drive Test', 'Connected ✔ Your Google Drive is ready.', '✅');
+            } else {
+                showAppWarning('Drive Test failed', (r && r.error) ? r.error : 'Could not connect.');
+            }
+        }
+
+        // ---- auto backup: daily 8 PM + catch-up when app is opened later ----
+        function driveLastDueTime(nowMs) {
+            const d = new Date(nowMs);
+            d.setHours(DRIVE_AUTO_HOUR, 0, 0, 0);
+            if (d.getTime() > nowMs) d.setDate(d.getDate() - 1);
+            return d.getTime();
+        }
+        function driveIsDue() {
+            if (!driveIsConnected() || !driveAutoEnabled()) return false;
+            return driveLastSuccess() < driveLastDueTime(Date.now());
+        }
+        function driveAutoTick() {
+            if (driveBusy || !driveIsDue()) return;
+            const now = Date.now();
+            if (now - driveLastAttempt < 15 * 60 * 1000) return;   // retry gap after a failure
+            driveLastAttempt = now;
+            driveBackupNow(true);
+        }
+
+        // ---- screen mode: quiet row (no link) or full box (link saved) ----
+        function driveApplyMode() {
+            const connected = driveIsConnected();
+            const showSetup = connected || driveSetupOpen;
+            const quiet  = document.getElementById('driveQuietRow');
+            const main   = document.getElementById('driveMain');
+            const det    = document.getElementById('driveSettingsBox');
+            const cancel = document.getElementById('driveCancelBtn');
+            if (quiet)  quiet.style.display  = showSetup ? 'none' : 'block';
+            if (main)   main.style.display   = connected ? 'block' : 'none';
+            if (det)    det.style.display    = showSetup ? 'block' : 'none';
+            if (cancel) cancel.style.display = connected ? 'none' : 'block';
+            if (det && !connected && driveSetupOpen) det.open = true;
+            if (typeof pastApplyMode === 'function') pastApplyMode();
+        }
+        function driveOpenSetup() {
+            driveSetupOpen = true;
+            driveApplyMode();
+        }
+        function driveCloseSetup() {
+            driveSetupOpen = false;
+            driveHideSecrets();
+            driveApplyMode();
+        }
+
+        // ---- status display ----
+        function driveRenderStatus(errMsg) {
+            const st = document.getElementById('driveStatusLine');
+            const last = document.getElementById('driveLastLine');
+            const auto = document.getElementById('driveAutoLine');
+            if (!st || !last || !auto) return;
+
+            if (!driveIsConnected()) {
+                st.textContent = '⚪ Not connected. Open Drive Settings below and paste your link and key.';
+                st.style.color = '#64748b';
+            } else if (errMsg) {
+                st.textContent = '❌ ' + errMsg;
+                st.style.color = 'var(--danger)';
+            } else {
+                st.textContent = '🟢 Connected';
+                st.style.color = 'var(--success)';
+            }
+
+            const t = driveLastSuccess();
+            last.textContent = t ? ('Last Drive backup: ' + driveFormatTime(t)) : 'Last Drive backup: not yet';
+
+            if (!driveIsConnected()) auto.textContent = '';
+            else if (!driveAutoEnabled()) auto.textContent = 'Daily 8 PM auto backup starts after your first Drive backup.';
+            else auto.textContent = 'Auto backup: every day at 8 PM (when the app is open). If missed, it runs when you open the app.';
+            driveApplyMode();
+        }
+
+        // ---- show / hide link & key (auto-hides when settings box is closed) ----
+        function driveHideSecrets() {
+            const u = document.getElementById('driveUrlInput');
+            const k = document.getElementById('driveKeyInput');
+            const btn = document.getElementById('driveRevealBtn');
+            if (u) u.type = 'password';
+            if (k) k.type = 'password';
+            if (btn) btn.textContent = '👁 Show link & key';
+        }
+        function driveToggleReveal() {
+            const u = document.getElementById('driveUrlInput');
+            const k = document.getElementById('driveKeyInput');
+            const btn = document.getElementById('driveRevealBtn');
+            if (!u || !k) return;
+            const showing = (u.type === 'text');
+            if (showing) { driveHideSecrets(); }
+            else {
+                u.type = 'text';
+                k.type = 'text';
+                if (btn) btn.textContent = '🙈 Hide link & key';
+            }
+        }
+
+        function driveInit() {
+            const s = driveGetSettings();
+            const u = document.getElementById('driveUrlInput');
+            const k = document.getElementById('driveKeyInput');
+            if (u) u.value = s.url;
+            if (k) k.value = s.key;
+            const det = document.getElementById('driveSettingsBox');
+            if (det) det.addEventListener('toggle', function () { if (!det.open) driveHideSecrets(); });
+            driveRenderStatus('');
+            setTimeout(driveAutoTick, 3000);
+            setInterval(driveAutoTick, 60 * 1000);
+            document.addEventListener('visibilitychange', function () { if (!document.hidden) driveAutoTick(); });
+            window.addEventListener('online', driveAutoTick);
+        }
+        driveInit();
+        // ===================== END GOOGLE DRIVE BACKUP MODULE =====================
+
+        // ===================================================================
+        // YEAR CLOSE MODULE  (isolated - every function is separate)
+        // Only years BEFORE the current year can be closed.
+        // Plus (Drive link saved): save to Drive + verify, then remove from app.
+        // Basic: download year file, customer confirms, then remove from app.
+        // ===================================================================
+        const YEAR_CLOSED_KEY = 'asm_closedYears';
+        const YEAR_AUTO_DAY = 10;          // old year closes automatically on 10 January (Plus only)
+        let yearBusy = false;
+        let yearLastAuto = 0;
+        let yearAutoFail = '';
+
+        function yearCurrent() {
+            return new Date().getFullYear();
+        }
+        function yearGetClosed() {
+            try {
+                const a = JSON.parse(localStorage.getItem(YEAR_CLOSED_KEY) || '[]');
+                return Array.isArray(a) ? a.map(String) : [];
+            } catch (e) { return []; }
+        }
+        function yearSetClosed(list) {
+            try { localStorage.setItem(YEAR_CLOSED_KEY, JSON.stringify(list)); } catch (e) {}
+        }
+
+        // true (and a message) when the date belongs to a closed year
+        function yearGuard(dateStr) {
+            const y = String(dateStr || '').slice(0, 4);
+            if (yearGetClosed().indexOf(y) !== -1) {
+                showAppWarning('Year ' + y + ' is closed', 'Entries dated in ' + y + ' can no longer be added or changed. Please check the date.');
+                return true;
+            }
+            return false;
+        }
+
+        // where are we in the calendar: January grace days, or the auto-close window
+        function yearPhase(nowMs) {
+            const d = new Date(nowMs || Date.now());
+            const cur = d.getFullYear();
+            const month = d.getMonth();     // 0 = January
+            const day = d.getDate();
+            return {
+                cur: cur,
+                prev: cur - 1,
+                grace: month === 0 && day < YEAR_AUTO_DAY,         // 1 to 9 Jan
+                autoWindow: month === 0 && day >= YEAR_AUTO_DAY    // 10 to 31 Jan
+            };
+        }
+
+        // finished years that still have entries: [{year, count}]
+        function yearCandidates(curYear) {
+            const cur = curYear || yearCurrent();
+            const groups = driveGroupByYear();
+            return Object.keys(groups)
+                .filter(function (y) { return Number(y) < cur; })
+                .sort()
+                .map(function (y) { return { year: y, count: groups[y].length }; });
+        }
+
+        function yearRenderList() {
+            yearRenderBanner();
+            const box = document.getElementById('yearCloseList');
+            if (!box) return;
+            const list = yearCandidates();
+            box.textContent = '';
+            if (!list.length) {
+                const p = document.createElement('p');
+                p.style.cssText = 'font-size: 0.85rem; color: #475569;';
+                p.textContent = 'No finished year to close. ' + yearCurrent() + ' can be closed from January ' + (yearCurrent() + 1) + '.';
+                box.appendChild(p);
+                return;
+            }
+            list.forEach(function (item) {
+                const row = document.createElement('div');
+                row.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;';
+                const t = document.createElement('div');
+                t.style.cssText = 'flex: 1; font-size: 0.9rem; font-weight: 600; color: #0f172a;';
+                t.textContent = item.year + ': ' + item.count + (item.count === 1 ? ' entry' : ' entries');
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'btn btn-secondary';
+                b.style.width = 'auto';
+                b.textContent = 'Close this year';
+                b.onclick = function () { yearCloseStart(item.year); };
+                row.appendChild(t);
+                row.appendChild(b);
+                box.appendChild(row);
+            });
+        }
+
+        // ---- small popup used by Year Close ----
+        function yearShowModal(title, message, buttons) {
+            document.getElementById('ycTitle').textContent = title;
+            document.getElementById('ycMessage').textContent = message;
+            const bx = document.getElementById('ycButtons');
+            bx.textContent = '';
+            bx.style.flexDirection = '';
+            (buttons || []).forEach(function (b) {
+                const el = document.createElement('button');
+                el.type = 'button';
+                el.className = 'btn ' + (b.cls || 'btn-secondary');
+                el.style.flex = '1';
+                el.textContent = b.label;
+                el.onclick = b.onClick;
+                bx.appendChild(el);
+            });
+            document.getElementById('yearCloseModal').classList.add('active');
+        }
+        function yearHideModal() {
+            document.getElementById('yearCloseModal').classList.remove('active');
+        }
+        function yearInfoModal(title, message) {
+            yearShowModal(title, message, [{ label: 'OK', cls: 'btn-secondary', onClick: yearHideModal }]);
+        }
+
+        // ---- step 1: ask ----
+        function yearCloseStart(year) {
+            if (yearBusy) return;
+            year = String(year);
+            const entries = driveGroupByYear()[year] || [];
+            if (!entries.length) { yearRenderList(); return; }
+            if (Number(year) >= yearCurrent()) {
+                showAppWarning('Cannot close ' + year, 'Only finished years can be closed.');
+                return;
+            }
+            const n = entries.length;
+            const fileName = DRIVE_APP_NAME + '-' + year + '.json';
+            if (driveIsConnected()) {
+                yearShowModal('Close year ' + year + '?',
+                    n + ' entries of ' + year + ' will be saved to your Google Drive as ' + fileName + '. Only after Drive confirms, they are removed from this app. After closing, no entry can be added in ' + year + '.',
+                    [
+                        { label: 'Cancel', cls: 'btn-secondary', onClick: yearHideModal },
+                        { label: 'Close year', cls: 'btn-danger', onClick: function () { yearDoCloseDrive(year); } }
+                    ]);
+            } else {
+                yearShowModal('Close year ' + year + '?',
+                    'A backup file (' + fileName + ') with ' + n + ' entries will be downloaded. Keep it safely. The entries are removed from this app only after you confirm the file is saved.',
+                    [
+                        { label: 'Cancel', cls: 'btn-secondary', onClick: yearHideModal },
+                        { label: 'Download file', cls: 'btn-danger', onClick: function () { yearDoCloseFile(year); } }
+                    ]);
+            }
+        }
+
+        // ---- shared: save one year to Drive and read it back. Returns '' if confirmed, else a problem text ----
+        async function yearSaveToDrive(year, entries) {
+            const r = await drivePost({
+                action: 'backup', app: DRIVE_APP_NAME, year: year,
+                data: driveBuildPayload(year, entries)
+            });
+            if (!(r && r.ok)) return (r && r.error) ? r.error : 'Backup failed.';
+            const v = await drivePost({ action: 'get', app: DRIVE_APP_NAME, year: year });
+            try {
+                const saved = JSON.parse(v.data);
+                if (v && v.ok && saved.ledgerEntries && saved.ledgerEntries.length === entries.length) return '';
+            } catch (e) {}
+            return 'Could not confirm the saved file in Drive.';
+        }
+
+        // ---- step 2a: Plus - save to Drive, verify, then remove ----
+        async function yearDoCloseDrive(year) {
+            if (yearBusy) return;
+            yearBusy = true;
+            const entries = driveGroupByYear()[year] || [];
+            yearShowModal('Closing ' + year + '...', 'Saving to Google Drive. Please wait.', []);
+            const problem = await yearSaveToDrive(year, entries);
+            yearBusy = false;
+
+            if (problem) {
+                yearInfoModal('Year ' + year + ' not closed', problem.replace(/[.\s]+$/, '') + '. Your entries are safe, nothing was removed.');
+                return;
+            }
+            yearRemoveEntries(year);
+            yearInfoModal('Year ' + year + ' closed', 'Saved to Google Drive as ' + DRIVE_APP_NAME + '-' + year + '.json. ' + entries.length + ' entries removed from this app.');
+        }
+
+        // ---- step 2b: Basic - download file, customer confirms, then remove ----
+        function yearDoCloseFile(year) {
+            const entries = driveGroupByYear()[year] || [];
+            const fileName = DRIVE_APP_NAME + '-' + year + '.json';
+            const blob = new Blob([JSON.stringify(driveBuildPayload(year, entries), null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+
+            yearShowModal('Is the file saved safely?',
+                fileName + ' was downloaded. Please check it is saved on your phone or pen drive. The ' + year + ' entries are removed only if you confirm.',
+                [
+                    { label: 'No, keep entries', cls: 'btn-secondary', onClick: yearHideModal },
+                    { label: 'Yes, remove', cls: 'btn-danger', onClick: function () {
+                        yearRemoveEntries(year);
+                        yearInfoModal('Year ' + year + ' closed', entries.length + ' entries removed from this app. Keep ' + fileName + ' safe.');
+                    } }
+                ]);
+        }
+
+        // ---- step 3: remove entries + mark closed ----
+        function yearRemoveEntries(year) {
+            year = String(year);
+            ledgerEntries = ledgerEntries.filter(function (e) { return driveEntryYear(e) !== year; });
+            const closed = yearGetClosed();
+            if (closed.indexOf(year) === -1) closed.push(year);
+            yearSetClosed(closed);
+            saveToStorage();
+            renderLedger();
+            yearRenderList();
+        }
+
+        // ---- banner at the top of every menu ----
+        function yearRenderBanner(nowMs) {
+            const el = document.getElementById('yearBanner');
+            if (!el) return;
+            if (pastView) { el.style.display = 'none'; return; }
+            const ph = yearPhase(nowMs);
+            const cands = yearCandidates(ph.cur);
+            el.textContent = '';
+            if (!cands.length) { el.style.display = 'none'; return; }
+
+            let text;
+            const hasPrev = cands.some(function (c) { return Number(c.year) === ph.prev; });
+            if (ph.grace && hasPrev) {
+                text = 'New year ' + ph.cur + ' started. ' + ph.prev + ' stays open for missed entries until ' + (YEAR_AUTO_DAY - 1) + ' Jan. ' +
+                    (driveIsConnected()
+                        ? 'It closes by itself on ' + YEAR_AUTO_DAY + ' Jan, or close it now.'
+                        : 'Close it yourself when you are ready.');
+            } else {
+                const names = cands.map(function (c) { return c.year; }).join(', ');
+                text = 'Year ' + names + ' still open. Press Year Close to save and close it.' +
+                    (yearAutoFail ? ' Auto close failed: ' + yearAutoFail.replace(/[.\s]+$/, '') + '. It will try again.' : '');
+            }
+            el.style.cssText = 'display: block; background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; line-height: 1.4;';
+            const p = document.createElement('div');
+            p.textContent = '📅 ' + text;
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'btn btn-secondary';
+            b.style.cssText = 'width: auto; margin-top: 0.5rem; padding: 0.4rem 0.9rem; font-size: 0.8rem;';
+            b.textContent = 'Open Year Close';
+            b.onclick = yearGoToClose;
+            el.appendChild(p);
+            el.appendChild(b);
+        }
+        function yearGoToClose() {
+            const btn = Array.prototype.slice.call(document.querySelectorAll('.nav-item')).find(function (b) {
+                return b.textContent.indexOf('Backup') !== -1;
+            });
+            if (btn) switchTab('backupSection', btn);
+            const box = document.getElementById('yearCloseBox');
+            if (box && box.scrollIntoView) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // ---- automatic close: Plus only, 10 to 31 January, only after Drive confirms ----
+        async function yearAutoTick(nowMs) {
+            yearRenderBanner(nowMs);
+            if (yearBusy || driveBusy || pastView) return;
+            const ph = yearPhase(nowMs);
+            if (!ph.autoWindow || !driveIsConnected()) return;
+            const year = String(ph.prev);
+            const entries = driveGroupByYear()[year] || [];
+            if (!entries.length) return;
+            const now = nowMs || Date.now();
+            if (now - yearLastAuto < 15 * 60 * 1000) return;   // retry gap after a failure
+            yearLastAuto = now;
+
+            yearBusy = true;
+            const problem = await yearSaveToDrive(year, entries);
+            yearBusy = false;
+            if (problem) {
+                yearAutoFail = problem;
+                yearRenderBanner(nowMs);
+                return;
+            }
+            yearAutoFail = '';
+            yearRemoveEntries(year);
+            yearInfoModal('Year ' + year + ' closed automatically',
+                'Saved to Google Drive as ' + DRIVE_APP_NAME + '-' + year + '.json. ' + entries.length + ' entries removed from this app.');
+        }
+
+        function yearInit() {
+            yearRenderList();
+            setTimeout(yearAutoTick, 4000);
+            setInterval(yearAutoTick, 60 * 1000);
+            document.addEventListener('visibilitychange', function () { if (!document.hidden) yearAutoTick(); });
+            window.addEventListener('online', function () { yearAutoTick(); });
+        }
+        yearInit();
+        // ===================== END YEAR CLOSE MODULE =====================
+
+        // ===================================================================
+        // PAST YEARS MODULE  (isolated - view-only, nothing is saved or changed)
+        // Opens a year file (Drive or file) in place of the live data.
+        // Your own data is kept aside and put back on Exit. Add, Modify,
+        // Backup/Restore, Reset and Year Close stay closed while viewing.
+        // ===================================================================
+        let pastStash = null;
+
+        function pastNavButton(sectionId) {
+            return document.querySelector('.nav-item[onclick*="' + sectionId + '"]');
+        }
+
+        function pastUnion(base, extra) {
+            const out = (base || []).slice();
+            (extra || []).forEach(function (x) {
+                if (!out.some(function (o) { return String(o).toLowerCase() === String(x).toLowerCase(); })) out.push(x);
+            });
+            return out;
+        }
+
+        // latest month that has data, so View/Yearly open on a month that is not empty
+        function pastLatestPeriod(entries) {
+            let best = '';
+            (entries || []).forEach(function (e) {
+                const d = String((e && e.date) || '');
+                if (/^\d{4}-\d{2}/.test(d) && d.slice(0, 7) > best) best = d.slice(0, 7);
+            });
+            if (!best) {
+                const t = new Date();
+                return { y: String(t.getFullYear()), m: String(t.getMonth() + 1).padStart(2, '0') };
+            }
+            return { y: best.slice(0, 4), m: best.slice(5, 7) };
+        }
+
+        // ---- open ----
+        function pastEnter(label, data) {
+            if (!data || !Array.isArray(data.ledgerEntries)) {
+                showAppWarning('Cannot open', 'This is not a Home Ledger backup file.');
+                return;
+            }
+            if (pastView) return;
+            pastStash = { entries: ledgerEntries, exp: expenseItems, rec: receiptItems };
+            ledgerEntries = data.ledgerEntries.slice();
+            expenseItems = pastUnion(pastStash.exp, data.expenseItems);     // old categories shown too, nothing saved
+            receiptItems = pastUnion(pastStash.rec, data.receiptItems);
+            pastView = { label: String(label), count: ledgerEntries.length, period: pastLatestPeriod(ledgerEntries) };
+
+            pastApplyUI();
+            resetViewPdfFilters();
+            renderLedger();
+            switchTab('viewSection', pastNavButton('viewSection'));
+        }
+
+        // ---- exit ----
+        function pastExit() {
+            if (!pastView || !pastStash) return;
+            ledgerEntries = pastStash.entries;
+            expenseItems = pastStash.exp;
+            receiptItems = pastStash.rec;
+            pastView = null;
+            pastStash = null;
+            pastApplyUI();
+            resetViewPdfFilters();
+            renderLedger();
+            handleTypeChange();
+            yearRenderList();
+            switchTab('backupSection', pastNavButton('backupSection'));
+        }
+
+        // ---- banner + dimmed menus ----
+        function pastApplyUI() {
+            const el = document.getElementById('pastBanner');
+            const blocked = ['createSection', 'modifySection', 'backupSection'];
+            blocked.forEach(function (id) {
+                const b = pastNavButton(id);
+                if (b) b.style.opacity = pastView ? '0.4' : '';
+            });
+            if (!el) return;
+            el.textContent = '';
+            if (!pastView) { el.style.display = 'none'; yearRenderBanner(); return; }
+            el.style.cssText = 'display: flex; align-items: center; gap: 0.75rem; position: sticky; top: 0; z-index: 50; background: #eff6ff; border: 1px solid #93c5fd; color: #1e40af; border-radius: 8px; padding: 0.6rem 1rem; margin-bottom: 1rem; font-size: 0.85rem;';
+            const t = document.createElement('div');
+            t.style.flex = '1';
+            t.textContent = '👁 Viewing ' + pastView.label + ' - view only (' + pastView.count + (pastView.count === 1 ? ' entry' : ' entries') + ')';
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'btn btn-secondary';
+            b.style.cssText = 'width: auto; padding: 0.4rem 0.9rem; font-size: 0.8rem;';
+            b.textContent = 'Exit';
+            b.onclick = pastExit;
+            el.appendChild(t);
+            el.appendChild(b);
+            yearRenderBanner();
+        }
+
+        // ---- from file ----
+        function pastOpenFromFile() {
+            const input = document.getElementById('pastFileInput');
+            const f = input && input.files && input.files[0];
+            if (!f) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                let data = null;
+                try { data = JSON.parse(e.target.result); } catch (err) { data = null; }
+                input.value = '';
+                pastEnter(data && data.year ? data.year : 'Backup file', data);
+            };
+            reader.readAsText(f);
+        }
+
+        // ---- from Google Drive (Plus) ----
+        function pastApplyMode() {
+            const area = document.getElementById('pastDriveArea');
+            if (area) area.style.display = driveIsConnected() ? 'block' : 'none';
+        }
+
+        async function pastLoadDriveList() {
+            const btn = document.getElementById('pastDriveBtn');
+            const box = document.getElementById('pastDriveList');
+            if (!box) return;
+            if (btn) { btn.disabled = true; btn.textContent = 'Loading...'; }
+            const r = await drivePost({ action: 'list', app: DRIVE_APP_NAME }, 20000);
+            if (btn) { btn.disabled = false; btn.textContent = '☁️ View / Restore from Google Drive'; }
+            if (!(r && r.ok)) {
+                showAppWarning('Google Drive', (r && r.error) ? r.error : 'Could not read the list from Drive.');
+                return;
+            }
+            box.textContent = '';
+            const years = r.years || [];
+            if (!years.length) {
+                const p = document.createElement('p');
+                p.style.cssText = 'font-size: 0.85rem; color: #475569;';
+                p.textContent = 'No year files found in your Drive yet.';
+                box.appendChild(p);
+                return;
+            }
+            years.forEach(function (y) {
+                const row = document.createElement('div');
+                row.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;';
+                const t = document.createElement('div');
+                t.style.cssText = 'flex: 1; font-size: 0.9rem; font-weight: 600; color: #0f172a;';
+                t.textContent = y.year + '  (saved ' + (y.updatedAt || '') + ')';
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'btn btn-secondary';
+                b.style.width = 'auto';
+                b.textContent = 'View';
+                b.onclick = function () { pastViewFromDrive(y.year); };
+                row.appendChild(t);
+                row.appendChild(b);
+                if (yearGetClosed().indexOf(String(y.year)) === -1) {
+                    const rb = document.createElement('button');
+                    rb.type = 'button';
+                    rb.className = 'btn btn-secondary';
+                    rb.style.width = 'auto';
+                    rb.textContent = 'Restore';
+                    rb.onclick = function () { restoreFromDrive(y.year); };
+                    row.appendChild(rb);
+                }
+                box.appendChild(row);
+            });
+        }
+
+        async function pastViewFromDrive(year) {
+            const r = await drivePost({ action: 'get', app: DRIVE_APP_NAME, year: year }, 30000);
+            if (!(r && r.ok)) {
+                showAppWarning('Google Drive', (r && r.error) ? r.error : 'Could not open this year from Drive.');
+                return;
+            }
+            let data = null;
+            try { data = JSON.parse(r.data); } catch (e) { data = null; }
+            pastEnter(year, data);
+        }
+
+        pastApplyMode();
+        // ===================== END PAST YEARS MODULE =====================
+
+        // ===================================================================
+        // YEAR RESTORE MODULE  (isolated)
+        // A year file (home-ledger-2026.json) replaces ONLY that year's entries.
+        // Other years stay. Categories are joined, never deleted.
+        // A closed year cannot be restored - it can only be viewed.
+        // ===================================================================
+        function restoreApplyYear(year, data) {
+            year = String(year);
+            const fromFile = (data.ledgerEntries || []).filter(function (e) { return driveEntryYear(e) === year; });
+            const others = ledgerEntries.filter(function (e) { return driveEntryYear(e) !== year; });
+            ledgerEntries = others.concat(fromFile);
+            expenseItems = pastUnion(expenseItems, data.expenseItems);
+            receiptItems = pastUnion(receiptItems, data.receiptItems);
+            saveToStorage();
+            handleTypeChange();
+            renderLedger();
+            yearRenderList();
+            return fromFile.length;
+        }
+
+        function restoreYearFlow(data, source) {
+            if (pastView) return;
+            if (data.app && data.app !== DRIVE_APP_NAME) {
+                showAppWarning('Restore', 'This file is from another app, not Home Ledger.');
+                return;
+            }
+            const year = String(data.year);
+            if (yearGetClosed().indexOf(year) !== -1) {
+                yearShowModal('Year ' + year + ' is closed',
+                    'A closed year cannot be restored into the app. You can open it for viewing only.',
+                    [
+                        { label: 'Cancel', cls: 'btn-secondary', onClick: yearHideModal },
+                        { label: 'View only', cls: 'btn-secondary', onClick: function () { yearHideModal(); pastEnter(year, data); } }
+                    ]);
+                return;
+            }
+            const inFile = (data.ledgerEntries || []).filter(function (e) { return driveEntryYear(e) === year; }).length;
+            const inApp = ledgerEntries.filter(function (e) { return driveEntryYear(e) === year; }).length;
+            const go = function () {
+                yearHideModal();
+                const n = restoreApplyYear(year, data);
+                if (source === 'drive') {
+                    driveWrite(DRIVE_STORE.auto, '1');   // app now matches Drive, so daily auto backup is safe
+                    driveRenderStatus('');
+                }
+                showAppWarning('Restore', 'Year ' + year + ' restored (' + n + ' entries). Other years were not changed.', '✅');
+            };
+            if (!inApp) { go(); return; }      // nothing in the app for this year, nothing to lose
+            yearShowModal('Restore year ' + year + '?',
+                'This replaces the ' + inApp + ' entries of ' + year + ' now in the app with ' + inFile + ' entries from the ' + (source === 'drive' ? 'Google Drive file' : 'file') + '. Other years are not changed.',
+                [
+                    { label: 'Cancel', cls: 'btn-secondary', onClick: yearHideModal },
+                    { label: 'Restore', cls: 'btn-danger', onClick: go }
+                ]);
+        }
+
+        async function restoreFromDrive(year) {
+            if (pastView) return;
+            const r = await drivePost({ action: 'get', app: DRIVE_APP_NAME, year: year }, 30000);
+            if (!(r && r.ok)) {
+                showAppWarning('Restore', (r && r.error) ? r.error : 'Could not read this year from Drive.');
+                return;
+            }
+            let data = null;
+            try { data = JSON.parse(r.data); } catch (e) { data = null; }
+            if (!data || !Array.isArray(data.ledgerEntries)) {
+                showAppWarning('Restore', 'This Drive file could not be read.');
+                return;
+            }
+            data.year = data.year || year;
+            restoreYearFlow(data, 'drive');
+        }
+        // ===================== END YEAR RESTORE MODULE =====================
+
+        // ===================================================================
+        // FIRST RUN MODULE  (isolated)
+        // When the app opens with no entries, no closed years and no earlier
+        // choice, ask once: restore from Drive / from file / start fresh.
+        // ===================================================================
+        const FIRST_RUN_KEY = 'asm_firstRunDone';
+
+        function firstRunDone() {
+            return driveRead(FIRST_RUN_KEY) === '1';
+        }
+        function firstRunShouldShow() {
+            return !pastView
+                && !firstRunDone()
+                && (!ledgerEntries || ledgerEntries.length === 0)
+                && yearGetClosed().length === 0;
+        }
+
+        function firstRunShow() {
+            yearShowModal('No data found on this device',
+                'If you used Home Ledger before, you can bring your data back. If this is a new start, choose Start fresh.',
+                [
+                    { label: '☁️ Restore from Google Drive', cls: 'btn-success', onClick: firstRunGoDrive },
+                    { label: '📁 Restore from file', cls: 'btn-secondary', onClick: firstRunPickFile },
+                    { label: 'Start fresh', cls: 'btn-secondary', onClick: firstRunStartFresh }
+                ]);
+            document.getElementById('ycButtons').style.flexDirection = 'column';
+        }
+
+        function firstRunStartFresh() {
+            driveWrite(FIRST_RUN_KEY, '1');
+            yearHideModal();
+        }
+
+        // Drive: open the year list if a link is saved, otherwise open Drive Settings
+        function firstRunGoDrive() {
+            yearHideModal();
+            switchTab('backupSection', pastNavButton('backupSection'));
+            if (driveIsConnected()) {
+                pastLoadDriveList();
+                const box = document.getElementById('pastYearsBox');
+                if (box && box.scrollIntoView) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                driveOpenSetup();
+                const box = document.getElementById('driveBox');
+                if (box && box.scrollIntoView) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                showAppWarning('Google Drive', 'Enter your script link and secret key, press Save and Test Connection. Then press View / Restore from Google Drive in Past Years.', 'ℹ️');
+            }
+        }
+
+        // File: open the file chooser, and restore as soon as a file is picked
+        function firstRunPickFile() {
+            yearHideModal();
+            const input = document.getElementById('restoreFile');
+            if (!input) return;
+            const once = function () {
+                input.removeEventListener('change', once);
+                importBackupFile();
+            };
+            input.addEventListener('change', once);
+            input.click();
+        }
+
+        function firstRunInit() {
+            setTimeout(function () { if (firstRunShouldShow()) firstRunShow(); }, 800);
+        }
+        firstRunInit();
+        // ===================== END FIRST RUN MODULE =====================
     </script>
 </body>
 </html>
