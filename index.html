@@ -518,6 +518,9 @@
         <!-- YEAR BANNER (isolated Year Close module) -->
         <div id="yearBanner" style="display: none;"></div>
 
+        <!-- DAILY DRIVE BACKUP REMINDER (Google sign-in mode) -->
+        <div id="driveBanner" style="display: none;"></div>
+
         <!-- CREATE SECTION -->
         <section id="createSection" class="view-section active card">
             <div class="card-title">
@@ -900,8 +903,9 @@
             <div class="tools-box" id="driveBox">
                 <h4 style="margin-bottom: 0.5rem; color: var(--primary);">☁️ Google Drive Backup</h4>
                 <div id="driveQuietRow" style="display: none;">
-                    <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.75rem;">Not enabled. An optional add-on that saves your data to your own Google Drive every day.</p>
-                    <button type="button" class="btn btn-secondary" onclick="driveOpenSetup()">Set up Drive backup</button>
+                    <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.75rem;">Not enabled. An optional add-on that saves your data to your own Google Drive.</p>
+                    <button type="button" class="btn btn-success" onclick="driveGoogleSignIn()">Sign in with Google</button>
+                    <button type="button" class="btn btn-secondary" style="margin-top: 0.5rem;" onclick="driveOpenSetup()">Use script link instead</button>
                 </div>
                 <div id="driveMain">
                 <p id="driveStatusLine" style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem;"></p>
@@ -911,8 +915,8 @@
                 </div>
 
                 <details id="driveSettingsBox" style="margin-top: 1rem;">
-                    <summary style="cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--primary);">⚙️ Drive Settings (link &amp; key)</summary>
-                    <div style="margin-top: 0.75rem;">
+                    <summary style="cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--primary);">⚙️ Drive Settings</summary>
+                    <div id="driveScriptFields" style="margin-top: 0.75rem;">
                         <div class="form-group">
                             <label for="driveUrlInput">Script Link</label>
                             <input type="password" id="driveUrlInput" placeholder="Paste your script link" autocomplete="new-password" autocapitalize="off" spellcheck="false">
@@ -926,6 +930,13 @@
                             <button type="button" class="btn" onclick="driveSaveSettings()">Save</button>
                             <button type="button" class="btn btn-secondary" id="driveTestBtn" onclick="driveTestConnection()">Test Connection</button>
                             <button type="button" class="btn btn-secondary" id="driveCancelBtn" style="display: none;" onclick="driveCloseSetup()">Cancel</button>
+                        </div>
+                    </div>
+                    <div id="driveGoogleFields" style="display: none; margin-top: 0.75rem;">
+                        <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.75rem;">Signed in with Google. Backups go to the folder "ASM Backups" in your own Google Drive. Google asks for a quick confirmation about once an hour.</p>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button type="button" class="btn btn-secondary" onclick="driveTestConnection()">Test Connection</button>
+                            <button type="button" class="btn btn-danger" onclick="driveGoogleDisconnect()">Disconnect</button>
                         </div>
                     </div>
                 </details>
@@ -1190,6 +1201,7 @@
         <button class="nav-item" onclick="switchTab('backupSection', this)">💾 Backup/Restore</button>
     </nav>
 
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
         // Request persistent storage so the browser doesn't
         // auto-clear data when device storage runs low
@@ -2521,7 +2533,9 @@
             url:  'asm_drive_url',
             key:  'asm_drive_key',
             last: 'asm_drive_lastSuccess',   // ms timestamp of last successful Drive backup
-            auto: 'asm_drive_autoOn'         // '1' after first successful Drive backup
+            auto: 'asm_drive_autoOn',        // '1' after first successful Drive backup
+            mode: 'asm_drive_mode',          // 'google' or 'script' (empty = decided by saved link)
+            gflag: 'asm_drive_google'        // '1' after Google sign-in
         };
         let driveBusy = false;
         let driveLastAttempt = 0;
@@ -2539,9 +2553,14 @@
         function driveGetSettings() {
             return { url: driveRead(DRIVE_STORE.url), key: driveRead(DRIVE_STORE.key) };
         }
-        function driveIsConnected() {
+        // 'google' (sign-in), 'script' (link + key) or '' (not connected)
+        function driveMode() {
+            if (driveRead(DRIVE_STORE.mode) === 'google' && driveRead(DRIVE_STORE.gflag) === '1') return 'google';
             const s = driveGetSettings();
-            return !!(s.url && s.key);
+            return (s.url && s.key) ? 'script' : '';
+        }
+        function driveIsConnected() {
+            return driveMode() !== '';
         }
         function driveUrlLooksValid(url) {
             return /^https:\/\/script\.google\.com\/(a\/macros\/[^\/\s]+\/|macros\/)s\/[^\/\s]+\/exec$/.test(url);
@@ -2570,12 +2589,14 @@
 
         function driveSaveSettings() {
             const oldUrl = driveRead(DRIVE_STORE.url);
+            const wasGoogle = driveMode() === 'google';
             const url = document.getElementById('driveUrlInput').value.trim();
             const key = document.getElementById('driveKeyInput').value.trim();
 
             if (!url && !key) {
                 driveWrite(DRIVE_STORE.url, '');
                 driveWrite(DRIVE_STORE.key, '');
+                driveWrite(DRIVE_STORE.mode, '');
                 driveWrite(DRIVE_STORE.auto, '0');
                 driveSetupOpen = false;
                 driveRenderStatus('');
@@ -2592,8 +2613,9 @@
             }
             driveWrite(DRIVE_STORE.url, url);
             driveWrite(DRIVE_STORE.key, key);
+            driveWrite(DRIVE_STORE.mode, 'script');
             // New Drive account/link: auto backup waits for a first manual backup
-            if (url !== oldUrl) {
+            if (url !== oldUrl || wasGoogle) {
                 driveWrite(DRIVE_STORE.auto, '0');
                 driveWrite(DRIVE_STORE.last, '0');
             }
@@ -2603,8 +2625,203 @@
             showAppWarning('Drive Settings', 'Saved. Link and key are now hidden. Open Drive Settings and press Test Connection to check.', '✅');
         }
 
+        // ---- Google sign-in (no script, no key): talks to Drive directly ----
+        const DRIVE_GOOGLE_CLIENT_ID = '978793704970-e1isrkd8too2qlistrtpqdgn8oj2h98j.apps.googleusercontent.com';
+        const DRIVE_GOOGLE_SCOPE  = 'https://www.googleapis.com/auth/drive.file';
+        const DRIVE_GOOGLE_FOLDER = 'ASM Backups';
+        let driveGToken = null;
+        let driveGExpiry = 0;
+        let driveGClient = null;
+        let driveGWaiter = null;
+        let driveGFolderId = null;
+
+        function driveGoogleTokenValid() {
+            return !!driveGToken && Date.now() < driveGExpiry - 60000;
+        }
+
+        // returns '' when ready, else a problem text
+        function driveGoogleInitClient() {
+            if (driveGClient) return '';
+            if (!(window.google && google.accounts && google.accounts.oauth2)) {
+                return 'Google sign-in could not load. Check your internet, and open this app in Chrome.';
+            }
+            driveGClient = google.accounts.oauth2.initTokenClient({
+                client_id: DRIVE_GOOGLE_CLIENT_ID,
+                scope: DRIVE_GOOGLE_SCOPE,
+                callback: function (resp) {
+                    if (resp && resp.access_token) {
+                        driveGToken = resp.access_token;
+                        driveGExpiry = Date.now() + (Number(resp.expires_in || 3600) * 1000);
+                        if (driveGWaiter) { driveGWaiter.resolve(driveGToken); driveGWaiter = null; }
+                    } else if (driveGWaiter) {
+                        driveGWaiter.reject(new Error((resp && (resp.error_description || resp.error)) || 'Google sign-in failed.'));
+                        driveGWaiter = null;
+                    }
+                },
+                error_callback: function () {
+                    if (driveGWaiter) {
+                        driveGWaiter.reject(new Error('The Google window could not open. Allow pop-ups for this site and try again.'));
+                        driveGWaiter = null;
+                    }
+                }
+            });
+            return '';
+        }
+
+        // must be called straight from a button tap (the Google window needs it)
+        function driveGoogleToken() {
+            if (driveGoogleTokenValid()) return Promise.resolve(driveGToken);
+            const bad = driveGoogleInitClient();
+            if (bad) return Promise.reject(new Error(bad));
+            return new Promise(function (resolve, reject) {
+                driveGWaiter = { resolve: resolve, reject: reject };
+                driveGClient.requestAccessToken({ prompt: driveRead(DRIVE_STORE.gflag) === '1' ? '' : 'consent' });
+            });
+        }
+
+        async function driveGoogleApi(url, opts) {
+            const token = await driveGoogleToken();
+            opts = opts || {};
+            opts.headers = Object.assign({ Authorization: 'Bearer ' + token }, opts.headers || {});
+            const res = await fetch(url, opts);
+            if (!res.ok) {
+                if (res.status === 401) { driveGToken = null; throw new Error('Google sign-in expired. Please press the button again.'); }
+                if (res.status === 403) throw new Error('Google Drive refused the request. Check that the Drive permission was allowed.');
+                if (res.status === 404) { driveGFolderId = null; throw new Error('Google Drive could not find the file or folder.'); }
+                throw new Error('Google Drive error ' + res.status + '.');
+            }
+            return res;
+        }
+
+        async function driveGoogleFindFolder() {
+            if (driveGFolderId) return driveGFolderId;
+            const q = "name='" + DRIVE_GOOGLE_FOLDER + "' and mimeType='application/vnd.google-apps.folder' and trashed=false";
+            const r = await driveGoogleApi('https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(q) + '&fields=files(id,name)&spaces=drive');
+            const j = await r.json();
+            driveGFolderId = (j.files && j.files[0]) ? j.files[0].id : null;
+            return driveGFolderId;
+        }
+        async function driveGoogleEnsureFolder() {
+            const found = await driveGoogleFindFolder();
+            if (found) return found;
+            const r = await driveGoogleApi('https://www.googleapis.com/drive/v3/files', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: DRIVE_GOOGLE_FOLDER, mimeType: 'application/vnd.google-apps.folder' })
+            });
+            const j = await r.json();
+            driveGFolderId = j.id;
+            return driveGFolderId;
+        }
+        async function driveGoogleFindFile(folderId, name) {
+            const q = "name='" + name + "' and '" + folderId + "' in parents and trashed=false";
+            const r = await driveGoogleApi('https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(q) + '&fields=files(id,name,modifiedTime)&spaces=drive');
+            const j = await r.json();
+            return (j.files && j.files[0]) ? j.files[0] : null;
+        }
+        function driveGoogleFileName(app, year) {
+            const y = String(year || '');
+            return (app && /^\d{4}$/.test(y)) ? (app + '-' + y + '.json') : null;
+        }
+
+        // same replies as the script, so the rest of the app does not change
+        async function driveGoogleCall(payload) {
+            try {
+                if (payload.action === 'ping') {
+                    await driveGoogleToken();
+                    return { ok: true, message: 'Connected' };
+                }
+                if (payload.action === 'backup') {
+                    const name = driveGoogleFileName(payload.app, payload.year);
+                    if (!name) return { ok: false, error: 'App name or year missing' };
+                    const content = (typeof payload.data === 'string') ? payload.data : JSON.stringify(payload.data);
+                    const folderId = await driveGoogleEnsureFolder();
+                    const existing = await driveGoogleFindFile(folderId, name);
+                    if (existing) {
+                        await driveGoogleApi('https://www.googleapis.com/upload/drive/v3/files/' + existing.id + '?uploadType=media', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: content
+                        });
+                    } else {
+                        const boundary = 'asmboundary' + Date.now();
+                        const meta = JSON.stringify({ name: name, parents: [folderId], mimeType: 'application/json' });
+                        const body = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + meta +
+                            '\r\n--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' + content + '\r\n--' + boundary + '--';
+                        await driveGoogleApi('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
+                            body: body
+                        });
+                    }
+                    return { ok: true, file: name, size: content.length, savedAt: driveFormatTime(Date.now()) };
+                }
+                if (payload.action === 'list') {
+                    const folderId = await driveGoogleFindFolder();
+                    if (!folderId) return { ok: true, years: [] };
+                    const q = "'" + folderId + "' in parents and trashed=false";
+                    const r = await driveGoogleApi('https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(q) + '&fields=files(id,name,modifiedTime)&pageSize=200&spaces=drive');
+                    const j = await r.json();
+                    const re = new RegExp('^' + String(payload.app).replace(/[^a-z0-9-]/gi, '') + '-(\\d{4})\\.json$');
+                    const years = [];
+                    (j.files || []).forEach(function (f) {
+                        const m = f.name.match(re);
+                        if (m) years.push({ year: m[1], file: f.name, updatedAt: driveFormatTime(Date.parse(f.modifiedTime)) });
+                    });
+                    years.sort(function (a, b) { return b.year.localeCompare(a.year); });
+                    return { ok: true, years: years };
+                }
+                if (payload.action === 'get') {
+                    const name = driveGoogleFileName(payload.app, payload.year);
+                    if (!name) return { ok: false, error: 'App name or year missing' };
+                    const folderId = await driveGoogleFindFolder();
+                    const file = folderId ? await driveGoogleFindFile(folderId, name) : null;
+                    if (!file) return { ok: false, error: 'File not found: ' + name };
+                    const r = await driveGoogleApi('https://www.googleapis.com/drive/v3/files/' + file.id + '?alt=media');
+                    return { ok: true, file: name, updatedAt: driveFormatTime(Date.parse(file.modifiedTime)), data: await r.text() };
+                }
+                return { ok: false, error: 'Unknown action' };
+            } catch (e) {
+                if (e && (e instanceof TypeError || e.name === 'TypeError')) return { ok: false, error: 'Could not reach Google Drive. Check your internet.' };
+                return { ok: false, error: (e && e.message) ? e.message : 'Google Drive problem.' };
+            }
+        }
+
+        async function driveGoogleSignIn() {
+            try { await driveGoogleToken(); }
+            catch (e) { showAppWarning('Google sign-in', (e && e.message) ? e.message : 'Sign-in failed.'); return; }
+            const wasGoogle = driveMode() === 'google';
+            driveWrite(DRIVE_STORE.gflag, '1');
+            driveWrite(DRIVE_STORE.mode, 'google');
+            if (!wasGoogle) {                       // new Drive: auto reminder waits for a first manual backup
+                driveWrite(DRIVE_STORE.auto, '0');
+                driveWrite(DRIVE_STORE.last, '0');
+            }
+            driveSetupOpen = false;
+            driveRenderStatus('');
+            showAppWarning('Google sign-in', 'Signed in. Press Backup to Google Drive to create your ASM Backups folder and save the first backup.', '✅');
+        }
+
+        function driveGoogleDisconnect() {
+            try {
+                if (driveGToken && window.google && google.accounts && google.accounts.oauth2) {
+                    google.accounts.oauth2.revoke(driveGToken, function () {});
+                }
+            } catch (e) {}
+            driveGToken = null; driveGExpiry = 0; driveGFolderId = null;
+            driveWrite(DRIVE_STORE.gflag, '');
+            driveWrite(DRIVE_STORE.mode, '');
+            driveWrite(DRIVE_STORE.auto, '0');
+            driveSetupOpen = false;
+            driveRenderStatus('');
+            showAppWarning('Google Drive', driveIsConnected()
+                ? 'Disconnected from Google. The saved script link is used again.'
+                : 'Disconnected from Google. Your files stay in your Drive.', 'ℹ️');
+        }
+
         // ---- network ----
         async function drivePost(payload, timeoutMs) {
+            if (driveMode() === 'google') return driveGoogleCall(payload);
             const s = driveGetSettings();
             if (!s.url || !s.key) {
                 return { ok: false, error: 'Drive is not connected. Save the link and key first.' };
@@ -2756,11 +2973,35 @@
             return driveLastSuccess() < driveLastDueTime(Date.now());
         }
         function driveAutoTick() {
+            driveRenderBanner();
             if (driveBusy || !driveIsDue()) return;
+            if (driveMode() === 'google' && !driveGoogleTokenValid()) return;   // needs a tap: the banner asks for it
             const now = Date.now();
             if (now - driveLastAttempt < 15 * 60 * 1000) return;   // retry gap after a failure
             driveLastAttempt = now;
             driveBackupNow(true);
+        }
+
+        // ---- daily reminder (Google sign-in mode needs a tap) ----
+        function driveRenderBanner() {
+            const el = document.getElementById('driveBanner');
+            if (!el) return;
+            const show = driveMode() === 'google' && !pastView && !driveBusy && driveIsDue() && !driveGoogleTokenValid();
+            if (!show) { el.dataset.shown = ''; el.style.display = 'none'; el.textContent = ''; return; }
+            if (el.dataset.shown === '1') return;
+            el.dataset.shown = '1';
+            el.textContent = '';
+            el.style.cssText = 'display: block; background: #eff6ff; border: 1px solid #93c5fd; color: #1e40af; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; line-height: 1.4;';
+            const p = document.createElement('div');
+            p.textContent = '☁️ Daily backup: your data was not saved to Google Drive since yesterday evening.';
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'btn btn-success';
+            b.style.cssText = 'width: auto; margin-top: 0.5rem; padding: 0.4rem 0.9rem; font-size: 0.8rem;';
+            b.textContent = 'Backup now';
+            b.onclick = function () { driveBackupNow(false); };
+            el.appendChild(p);
+            el.appendChild(b);
         }
 
         // ---- screen mode: quiet row (no link) or full box (link saved) ----
@@ -2776,6 +3017,11 @@
             if (det)    det.style.display    = showSetup ? 'block' : 'none';
             if (cancel) cancel.style.display = connected ? 'none' : 'block';
             if (det && !connected && driveSetupOpen) det.open = true;
+            const g = driveMode() === 'google';
+            const sf = document.getElementById('driveScriptFields');
+            const gf = document.getElementById('driveGoogleFields');
+            if (sf) sf.style.display = g ? 'none' : 'block';
+            if (gf) gf.style.display = g ? 'block' : 'none';
             if (typeof pastApplyMode === 'function') pastApplyMode();
         }
         function driveOpenSetup() {
@@ -2796,13 +3042,13 @@
             if (!st || !last || !auto) return;
 
             if (!driveIsConnected()) {
-                st.textContent = '⚪ Not connected. Open Drive Settings below and paste your link and key.';
+                st.textContent = '⚪ Not connected. Sign in with Google, or use your script link.';
                 st.style.color = '#64748b';
             } else if (errMsg) {
                 st.textContent = '❌ ' + errMsg;
                 st.style.color = 'var(--danger)';
             } else {
-                st.textContent = '🟢 Connected';
+                st.textContent = driveMode() === 'google' ? '🟢 Connected (Google sign-in)' : '🟢 Connected';
                 st.style.color = 'var(--success)';
             }
 
@@ -2810,9 +3056,15 @@
             last.textContent = t ? ('Last Drive backup: ' + driveFormatTime(t)) : 'Last Drive backup: not yet';
 
             if (!driveIsConnected()) auto.textContent = '';
+            else if (driveMode() === 'google') {
+                auto.textContent = driveAutoEnabled()
+                    ? 'Daily reminder: when a backup is pending you will see a Backup now button. Google asks for a quick confirmation about once an hour.'
+                    : 'The daily reminder starts after your first Drive backup.';
+            }
             else if (!driveAutoEnabled()) auto.textContent = 'Daily 8 PM auto backup starts after your first Drive backup.';
             else auto.textContent = 'Auto backup: every day at 8 PM (when the app is open). If missed, it runs when you open the app.';
             driveApplyMode();
+            driveRenderBanner();
         }
 
         // ---- show / hide link & key (auto-hides when settings box is closed) ----
@@ -3082,7 +3334,7 @@
             const hasPrev = cands.some(function (c) { return Number(c.year) === ph.prev; });
             if (ph.grace && hasPrev) {
                 text = 'New year ' + ph.cur + ' started. ' + ph.prev + ' stays open for missed entries until ' + (YEAR_AUTO_DAY - 1) + ' Jan. ' +
-                    (driveIsConnected()
+                    (driveMode() === 'script'
                         ? 'It closes by itself on ' + YEAR_AUTO_DAY + ' Jan, or close it now.'
                         : 'Close it yourself when you are ready.');
             } else {
@@ -3117,6 +3369,7 @@
             if (yearBusy || driveBusy || pastView) return;
             const ph = yearPhase(nowMs);
             if (!ph.autoWindow || !driveIsConnected()) return;
+            if (driveMode() === 'google' && !driveGoogleTokenValid()) return;   // needs a tap: use the Year Close button
             const year = String(ph.prev);
             const entries = driveGroupByYear()[year] || [];
             if (!entries.length) return;
@@ -3441,10 +3694,9 @@
                 const box = document.getElementById('pastYearsBox');
                 if (box && box.scrollIntoView) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
             } else {
-                driveOpenSetup();
                 const box = document.getElementById('driveBox');
                 if (box && box.scrollIntoView) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                showAppWarning('Google Drive', 'Enter your script link and secret key, press Save and Test Connection. Then press View / Restore from Google Drive in Past Years.', 'ℹ️');
+                showAppWarning('Google Drive', 'Press Sign in with Google (or use your script link) in the Google Drive Backup box. Then press View / Restore from Google Drive in Past Years.', 'ℹ️');
             }
         }
 
