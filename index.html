@@ -508,6 +508,7 @@
     <header>
         <h1>Home Ledger</h1>
         <div class="sub-header">Powered by A.S.M Consultancy Services</div>
+        <div id="driveBadge" style="display: none; margin-top: 0.35rem; font-size: 0.7rem; background: rgba(255,255,255,0.18); color: #fff; padding: 0.15rem 0.6rem; border-radius: 999px;">☁️ Drive ON</div>
     </header>
 
     <div class="container">
@@ -953,7 +954,7 @@
             <!-- PAST YEARS BOX (isolated module) -->
             <div class="tools-box" id="pastYearsBox">
                 <h4 style="margin-bottom: 0.5rem; color: var(--primary);">📂 Past Years &amp; Restore</h4>
-                <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.75rem;">View a year read-only (reports, PDF, Excel) without touching your data. For a year that is still open, Restore brings it back into the app; other years are not changed.</p>
+                <p id="pastYearsDesc" style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.75rem;">View a year read-only (reports, PDF, Excel) without touching your data. For a year that is still open, Restore brings it back into the app; other years are not changed.</p>
                 <div id="pastDriveArea" style="display: none; margin-bottom: 0.75rem;">
                     <button type="button" class="btn btn-secondary" id="pastDriveBtn" onclick="pastLoadDriveList()">☁️ View / Restore from Google Drive</button>
                     <div id="pastDriveList" style="margin-top: 0.75rem;"></div>
@@ -2536,7 +2537,8 @@
             last: 'asm_drive_lastSuccess',   // ms timestamp of last successful Drive backup
             auto: 'asm_drive_autoOn',        // '1' after first successful Drive backup
             mode: 'asm_drive_mode',          // 'google' or 'script' (empty = decided by saved link)
-            gflag: 'asm_drive_google'        // '1' after Google sign-in
+            gflag: 'asm_drive_google',       // '1' after Google sign-in
+            feature: 'asm_drive_feature'     // '1' = Drive switched ON, '0' = OFF, empty = ON only if already connected
         };
         let driveBusy = false;
         let driveLastAttempt = 0;
@@ -2554,8 +2556,32 @@
         function driveGetSettings() {
             return { url: driveRead(DRIVE_STORE.url), key: driveRead(DRIVE_STORE.key) };
         }
-        // 'google' (sign-in), 'script' (link + key) or '' (not connected)
+        // ---- Drive switch: customers never see Drive unless it is switched ON on that phone ----
+        function driveFeatureOn() {
+            const v = driveRead(DRIVE_STORE.feature);
+            if (v === '1') return true;
+            if (v === '0') return false;
+            return driveRead(DRIVE_STORE.gflag) === '1' || !!(driveRead(DRIVE_STORE.url) && driveRead(DRIVE_STORE.key));
+        }
+        // reads ?drive=on / ?drive=off / ?drive=status from the address, then cleans the address
+        function driveProcessLink() {
+            let cmd = '';
+            try { cmd = (new URLSearchParams(window.location.search).get('drive') || '').toLowerCase(); } catch (e) { cmd = ''; }
+            if (!cmd) return '';
+            if (cmd === 'on') driveWrite(DRIVE_STORE.feature, '1');
+            else if (cmd === 'off') driveWrite(DRIVE_STORE.feature, '0');
+            try { window.history.replaceState(null, '', window.location.pathname + window.location.hash); } catch (e) {}
+            return cmd;
+        }
+        function driveStatusText() {
+            if (!driveFeatureOn()) return 'Drive mode is OFF on this phone.';
+            const m = driveMode();
+            return 'Drive mode is ON on this phone. ' + (m === 'google' ? 'Connected with Google sign-in.' : (m === 'script' ? 'Connected with the script link.' : 'Not connected yet.'));
+        }
+
+        // 'google' (sign-in), 'script' (link + key) or '' (not connected / Drive off)
         function driveMode() {
+            if (!driveFeatureOn()) return '';
             if (driveRead(DRIVE_STORE.mode) === 'google' && driveRead(DRIVE_STORE.gflag) === '1') return 'google';
             const s = driveGetSettings();
             return (s.url && s.key) ? 'script' : '';
@@ -2822,6 +2848,7 @@
 
         // ---- network ----
         async function drivePost(payload, timeoutMs) {
+            if (!driveFeatureOn()) return { ok: false, error: 'Drive is switched off on this phone.' };
             if (driveMode() === 'google') return driveGoogleCall(payload);
             const s = driveGetSettings();
             if (!s.url || !s.key) {
@@ -3007,6 +3034,11 @@
 
         // ---- screen mode: quiet row (no link) or full box (link saved) ----
         function driveApplyMode() {
+            const featureOn = driveFeatureOn();
+            const dbox = document.getElementById('driveBox');
+            if (dbox) dbox.style.display = featureOn ? '' : 'none';
+            const badge = document.getElementById('driveBadge');
+            if (badge) badge.style.display = featureOn ? 'inline-block' : 'none';
             const connected = driveIsConnected();
             const showSetup = connected || driveSetupOpen;
             const quiet  = document.getElementById('driveQuietRow');
@@ -3092,6 +3124,7 @@
         }
 
         function driveInit() {
+            const linkCmd = driveProcessLink();
             const s = driveGetSettings();
             const u = document.getElementById('driveUrlInput');
             const k = document.getElementById('driveKeyInput');
@@ -3104,6 +3137,9 @@
             setInterval(driveAutoTick, 60 * 1000);
             document.addEventListener('visibilitychange', function () { if (!document.hidden) driveAutoTick(); });
             window.addEventListener('online', driveAutoTick);
+            if (linkCmd === 'on' || linkCmd === 'off' || linkCmd === 'status') {
+                setTimeout(function () { showAppWarning('Drive mode', driveStatusText(), linkCmd === 'off' ? 'ℹ️' : '☁️'); }, 500);
+            }
         }
         driveInit();
         // ===================== END GOOGLE DRIVE BACKUP MODULE =====================
@@ -3516,6 +3552,10 @@
         function pastApplyMode() {
             const area = document.getElementById('pastDriveArea');
             if (area) area.style.display = driveIsConnected() ? 'block' : 'none';
+            const d = document.getElementById('pastYearsDesc');
+            if (d) d.textContent = driveFeatureOn()
+                ? 'View a year read-only (reports, PDF, Excel) without touching your data. For a year that is still open, Restore brings it back into the app; other years are not changed.'
+                : 'View a year read-only (reports, PDF, Excel) from a year file, without touching your data.';
         }
 
         async function pastLoadDriveList() {
@@ -3673,11 +3713,10 @@
         function firstRunShow() {
             yearShowModal('No data found on this device',
                 'If you used Home Ledger before, you can bring your data back. If this is a new start, choose Start fresh.',
-                [
-                    { label: '☁️ Restore from Google Drive', cls: 'btn-success', onClick: firstRunGoDrive },
+                (driveFeatureOn() ? [{ label: '☁️ Restore from Google Drive', cls: 'btn-success', onClick: firstRunGoDrive }] : []).concat([
                     { label: '📁 Restore from file', cls: 'btn-secondary', onClick: firstRunPickFile },
                     { label: 'Start fresh', cls: 'btn-secondary', onClick: firstRunStartFresh }
-                ]);
+                ]));
             document.getElementById('ycButtons').style.flexDirection = 'column';
         }
 
