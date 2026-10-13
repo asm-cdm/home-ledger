@@ -6,7 +6,7 @@
     <title>ASM Home Ledger</title>
     <link rel="icon" type="image/png" href="https://asm-cdm.github.io/home-ledger/asm-favicon.png">
     <link rel="apple-touch-icon" href="https://asm-cdm.github.io/home-ledger/asm-favicon.png">
-    <link rel="manifest" href="https://asm-cdm.github.io/home-ledger/manifest.json"> 
+    <link rel="manifest" href="https://asm-cdm.github.io/home-ledger/manifest.json">
     <style>
         :root {
             --primary: #1e3a8a;
@@ -904,9 +904,9 @@
             <div class="tools-box" id="driveBox">
                 <h4 style="margin-bottom: 0.5rem; color: var(--primary);">☁️ Google Drive Backup</h4>
                 <div id="driveQuietRow" style="display: none;">
-                    <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.75rem;">Not enabled. An optional add-on that saves your data to your own Google Drive.</p>
+                    <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.75rem;">Optional: save a backup copy of your data to your own Google Drive. Open this app in Chrome (not inside WhatsApp) to sign in.</p>
                     <button type="button" class="btn btn-success" onclick="driveGoogleSignIn()">Sign in with Google</button>
-                    <button type="button" class="btn btn-secondary" style="margin-top: 0.5rem;" onclick="driveOpenSetup()">Use script link instead</button>
+                    <p style="font-size: 0.75rem; color: #64748b; margin-top: 0.5rem;"><a href="https://asm-cdm.github.io/asm-privacy/" target="_blank" rel="noopener">Privacy policy</a></p>
                 </div>
                 <div id="driveMain">
                 <p id="driveStatusLine" style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem;"></p>
@@ -917,23 +917,6 @@
 
                 <details id="driveSettingsBox" style="margin-top: 1rem;">
                     <summary style="cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--primary);">⚙️ Drive Settings</summary>
-                    <div id="driveScriptFields" style="margin-top: 0.75rem;">
-                        <div class="form-group">
-                            <label for="driveUrlInput">Script Link</label>
-                            <input type="password" id="driveUrlInput" placeholder="Paste your script link" autocomplete="new-password" autocapitalize="off" spellcheck="false">
-                        </div>
-                        <div class="form-group">
-                            <label for="driveKeyInput">Secret Key</label>
-                            <input type="password" id="driveKeyInput" placeholder="Paste your secret key" autocomplete="new-password" autocapitalize="off" spellcheck="false">
-                        </div>
-                        <button type="button" id="driveRevealBtn" class="btn btn-secondary" style="margin-bottom: 0.5rem;" onclick="driveToggleReveal()">👁 Show link &amp; key</button>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button type="button" class="btn" onclick="driveSaveSettings()">Save</button>
-                            <button type="button" class="btn btn-secondary" id="driveTestBtn" onclick="driveTestConnection()">Test Connection</button>
-                            <button type="button" class="btn btn-secondary" id="driveCancelBtn" style="display: none;" onclick="driveCloseSetup()">Cancel</button>
-                        </div>
-                        <button type="button" class="btn btn-secondary" id="driveSwitchGoogleBtn" style="margin-top: 0.5rem;" onclick="driveGoogleSignIn()">Sign in with Google instead</button>
-                    </div>
                     <div id="driveGoogleFields" style="display: none; margin-top: 0.75rem;">
                         <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.75rem;">Signed in with Google. Backups go to the folder "ASM Backups" in your own Google Drive. Google asks for a quick confirmation about once an hour.</p>
                         <div style="display: flex; gap: 0.5rem;">
@@ -2558,10 +2541,7 @@
         }
         // ---- Drive switch: customers never see Drive unless it is switched ON on that phone ----
         function driveFeatureOn() {
-            const v = driveRead(DRIVE_STORE.feature);
-            if (v === '1') return true;
-            if (v === '0') return false;
-            return driveRead(DRIVE_STORE.gflag) === '1' || !!(driveRead(DRIVE_STORE.url) && driveRead(DRIVE_STORE.key));
+            return true;   // Google Drive backup button is shown to every customer (their choice to use it)
         }
         // reads ?drive=on / ?drive=off / ?drive=status from the address, then cleans the address
         function driveProcessLink() {
@@ -2583,8 +2563,7 @@
         function driveMode() {
             if (!driveFeatureOn()) return '';
             if (driveRead(DRIVE_STORE.mode) === 'google' && driveRead(DRIVE_STORE.gflag) === '1') return 'google';
-            const s = driveGetSettings();
-            return (s.url && s.key) ? 'script' : '';
+            return '';   // script link is switched off - Google sign-in only
         }
         function driveIsConnected() {
             return driveMode() !== '';
@@ -3003,7 +2982,7 @@
         function driveAutoTick() {
             driveRenderBanner();
             if (driveBusy || !driveIsDue()) return;
-            if (driveMode() === 'google' && !driveGoogleTokenValid()) return;   // needs a tap: the banner asks for it
+            if (driveMode() === 'google') return;   // no automatic backup: the reminder banner asks for a tap
             const now = Date.now();
             if (now - driveLastAttempt < 15 * 60 * 1000) return;   // retry gap after a failure
             driveLastAttempt = now;
@@ -3014,7 +2993,7 @@
         function driveRenderBanner() {
             const el = document.getElementById('driveBanner');
             if (!el) return;
-            const show = driveMode() === 'google' && !pastView && !driveBusy && driveIsDue() && !driveGoogleTokenValid();
+            const show = driveMode() === 'google' && !pastView && !driveBusy && driveIsDue();
             if (!show) { el.dataset.shown = ''; el.style.display = 'none'; el.textContent = ''; return; }
             if (el.dataset.shown === '1') return;
             el.dataset.shown = '1';
@@ -3038,7 +3017,7 @@
             const dbox = document.getElementById('driveBox');
             if (dbox) dbox.style.display = featureOn ? '' : 'none';
             const badge = document.getElementById('driveBadge');
-            if (badge) badge.style.display = featureOn ? 'inline-block' : 'none';
+            if (badge) badge.style.display = driveIsConnected() ? 'inline-block' : 'none';
             const connected = driveIsConnected();
             const showSetup = connected || driveSetupOpen;
             const quiet  = document.getElementById('driveQuietRow');
@@ -3075,7 +3054,7 @@
             if (!st || !last || !auto) return;
 
             if (!driveIsConnected()) {
-                st.textContent = '⚪ Not connected. Sign in with Google, or use your script link.';
+                st.textContent = '⚪ Not connected. Sign in with Google to save backups to your Drive.';
                 st.style.color = '#64748b';
             } else if (errMsg) {
                 st.textContent = '❌ ' + errMsg;
@@ -3406,7 +3385,7 @@
             if (yearBusy || driveBusy || pastView) return;
             const ph = yearPhase(nowMs);
             if (!ph.autoWindow || !driveIsConnected()) return;
-            if (driveMode() === 'google' && !driveGoogleTokenValid()) return;   // needs a tap: use the Year Close button
+            if (driveMode() === 'google') return;   // no automatic close: use the Year Close button
             const year = String(ph.prev);
             const entries = driveGroupByYear()[year] || [];
             if (!entries.length) return;
@@ -3736,7 +3715,7 @@
             } else {
                 const box = document.getElementById('driveBox');
                 if (box && box.scrollIntoView) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                showAppWarning('Google Drive', 'Press Sign in with Google (or use your script link) in the Google Drive Backup box. Then press View / Restore from Google Drive in Past Years.', 'ℹ️');
+                showAppWarning('Google Drive', 'Press Sign in with Google in the Google Drive Backup box. Then press View / Restore from Google Drive in Past Years.', 'ℹ️');
             }
         }
 
