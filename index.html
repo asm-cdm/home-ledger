@@ -505,7 +505,8 @@
 </head>
 <body>
 
-    <header>
+    <header style="position: relative;">
+        <button type="button" id="helpBtn" class="no-print" onclick="helpOpen()" style="position: absolute; top: 0.7rem; right: 0.7rem; background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.45); border-radius: 999px; padding: 0.25rem 0.7rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;">❓ Help</button>
         <h1>Home Ledger</h1>
         <div class="sub-header">Powered by A.S.M Consultancy Services</div>
         <div id="driveBadge" style="display: none; margin-top: 0.35rem; font-size: 0.7rem; background: rgba(255,255,255,0.18); color: #fff; padding: 0.15rem 0.6rem; border-radius: 999px;">☁️ Drive ON</div>
@@ -1043,6 +1044,16 @@
         </div>
     </div>
 
+    <!-- HELP PANEL (isolated Help module) -->
+    <div id="helpModal" class="modal-overlay" onclick="if(event.target===this) helpClose()">
+        <div class="modal" style="max-width: 440px; position: relative;">
+            <button type="button" aria-label="Close" onclick="helpClose()" style="position: absolute; top: 0.6rem; right: 0.7rem; background: none; border: none; font-size: 1.3rem; line-height: 1; color: #64748b; cursor: pointer;">✕</button>
+            <h3 id="helpTitle" style="color: var(--primary); margin-bottom: 0.75rem; font-size: 1.1rem; padding-right: 1.8rem;">Help</h3>
+            <div id="helpBody" style="max-height: 60vh; overflow-y: auto;"></div>
+            <button type="button" id="helpBackBtn" class="btn btn-secondary" style="display: none; width: 100%; margin-top: 1rem;" onclick="helpShowList()">← Back</button>
+        </div>
+    </div>
+
     <!-- IN-APP ALERT/WARNING MODAL -->
     <div id="warningModal" class="modal-overlay">
         <div class="modal" style="max-width: 420px; text-align: center;">
@@ -1220,6 +1231,51 @@
             }
             return dateStr;
         }
+
+        /* ===================== HELP MODULE (isolated - text only, never touches data) ===================== */
+        const HELP_PRIVACY_URL = 'https://asm-cdm.github.io/asm-privacy/';
+        const HELP_TOPICS = [
+            { icon: '➕', title: 'Create', text: 'Add a new entry. Pick the date, choose Expense or Receipt, type to search the category (use + Add / Edit to add a new one), choose the payment mode, enter the amount, add a note if you like, then press Save Entry.' },
+            { icon: '✏️', title: 'Modify', text: 'Change or remove an old entry. Choose the month and year, or pick one date, to list the entries. Use the buttons on a row to edit or delete it.' },
+            { icon: '📊', title: 'View', text: 'See your totals for a month or a date range: receipts, expenses and balance. Choose Detailed, Consolidated or Expenses & Receipts, search by item, and use the PDF or Excel button to save the report.' },
+            { icon: '📄', title: 'PDF Create', text: 'Make a printable statement. Choose the month or date range and the statement type, check the report, then press PDF to print or save it, or Excel for a spreadsheet.' },
+            { icon: '📅', title: 'Yearly', text: 'See the month-wise report for a whole year. Type the year to view it, then press PDF or Excel to save it.' },
+            { icon: '💾', title: 'Backup/Restore', text: 'Keep your data safe. Export Backup File saves a copy on your phone. Sign in with Google to back up to your own Google Drive, and use the same Google account to restore on a new phone. Year Close saves a finished year and starts fresh.' }
+        ];
+        function helpOpen() { helpShowList(); document.getElementById('helpModal').classList.add('active'); }
+        function helpClose() { document.getElementById('helpModal').classList.remove('active'); }
+        function helpShowList() {
+            document.getElementById('helpTitle').textContent = '❓ Help';
+            document.getElementById('helpBackBtn').style.display = 'none';
+            const body = document.getElementById('helpBody');
+            body.innerHTML = '';
+            HELP_TOPICS.forEach(function (t, i) {
+                const b = document.createElement('button');
+                b.type = 'button'; b.className = 'btn btn-secondary';
+                b.style.cssText = 'width:100%; text-align:left; margin-bottom:0.5rem;';
+                b.textContent = t.icon + ' ' + t.title;
+                b.onclick = function () { helpShowTopic(i); };
+                body.appendChild(b);
+            });
+            const pr = document.createElement('a');
+            pr.href = HELP_PRIVACY_URL; pr.target = '_blank'; pr.rel = 'noopener';
+            pr.className = 'btn btn-secondary';
+            pr.style.cssText = 'display:block; width:100%; text-align:left; margin-bottom:0.5rem; text-decoration:none; box-sizing:border-box;';
+            pr.textContent = '🔒 Privacy Policy';
+            body.appendChild(pr);
+        }
+        function helpShowTopic(i) {
+            const t = HELP_TOPICS[i];
+            document.getElementById('helpTitle').textContent = t.icon + ' ' + t.title;
+            const body = document.getElementById('helpBody');
+            body.innerHTML = '';
+            const p = document.createElement('p');
+            p.style.cssText = 'font-size:0.95rem; color:#334155; line-height:1.6;';
+            p.textContent = t.text;
+            body.appendChild(p);
+            document.getElementById('helpBackBtn').style.display = 'block';
+        }
+        /* ===================== END HELP MODULE ===================== */
 
         function showAppWarning(title, message, icon = '⚠️') {
             document.getElementById('warningIcon').textContent = icon;
