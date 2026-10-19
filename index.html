@@ -2858,6 +2858,7 @@
             if (!wasGoogle) {                       // new Drive: auto reminder waits for a first manual backup
                 driveWrite(DRIVE_STORE.auto, '0');
                 driveWrite(DRIVE_STORE.last, '0');
+                driveWrite(DRIVE_SIGNEDIN_KEY, String(Date.now()));   // the 3-day warning counts from here until the first backup
             }
             driveSetupOpen = false;
             driveRenderStatus('');
@@ -3036,7 +3037,6 @@
             return driveLastSuccess() < driveLastDueTime(Date.now());
         }
         function driveAutoTick() {
-            driveRenderBanner();
             if (driveBusy || !driveIsDue()) return;
             if (driveMode() === 'google') return;   // no automatic backup: the reminder banner asks for a tap
             const now = Date.now();
@@ -3045,26 +3045,26 @@
             driveBackupNow(true);
         }
 
-        // ---- daily reminder (Google sign-in mode needs a tap) ----
-        function driveRenderBanner() {
+        // ---- "not backed up" warning (isolated): shows 4 seconds when the app opens, only if the last Drive backup is older than 3 days ----
+        const DRIVE_STALE_DAYS = 3;
+        const DRIVE_SIGNEDIN_KEY = 'asm_drive_signedIn';   // when Google sign-in was done (used if no backup was made yet)
+        let driveWarnTimer = null;
+        let driveWarnLastShown = 0;
+        function driveWarnIfStale() {
+            if (driveMode() !== 'google' || pastView) return;
             const el = document.getElementById('driveBanner');
             if (!el) return;
-            const show = driveMode() === 'google' && !pastView && !driveBusy && driveIsDue();
-            if (!show) { el.dataset.shown = ''; el.style.display = 'none'; el.textContent = ''; return; }
-            if (el.dataset.shown === '1') return;
-            el.dataset.shown = '1';
-            el.textContent = '';
-            el.style.cssText = 'display: block; background: #eff6ff; border: 1px solid #93c5fd; color: #1e40af; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; line-height: 1.4;';
-            const p = document.createElement('div');
-            p.textContent = '☁️ Daily backup: your data was not saved to Google Drive since yesterday evening.';
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.className = 'btn btn-success';
-            b.style.cssText = 'width: auto; margin-top: 0.5rem; padding: 0.4rem 0.9rem; font-size: 0.8rem;';
-            b.textContent = 'Backup now';
-            b.onclick = function () { driveBackupNow(false); };
-            el.appendChild(p);
-            el.appendChild(b);
+            const last = driveLastSuccess();
+            const signedIn = parseInt(driveRead(DRIVE_SIGNEDIN_KEY), 10) || 0;
+            const ref = Math.max(last, signedIn);
+            if (ref === 0) { driveWrite(DRIVE_SIGNEDIN_KEY, String(Date.now())); return; }   // start counting now
+            if (Date.now() - ref < DRIVE_STALE_DAYS * 24 * 60 * 60 * 1000) return;
+            if (Date.now() - driveWarnLastShown < 60 * 1000) return;                        // no flicker if the app is switched quickly
+            driveWarnLastShown = Date.now();
+            el.textContent = '⚠️ Not backed up to Google Drive recently. Go to Backup / Restore.';
+            el.style.cssText = 'display: block; background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; font-weight: 600; line-height: 1.4;';
+            clearTimeout(driveWarnTimer);
+            driveWarnTimer = setTimeout(function () { el.style.display = 'none'; el.textContent = ''; }, 4000);
         }
 
         // ---- screen mode: quiet row (no link) or full box (link saved) ----
@@ -3125,14 +3125,11 @@
 
             if (!driveIsConnected()) auto.textContent = '';
             else if (driveMode() === 'google') {
-                auto.textContent = driveAutoEnabled()
-                    ? 'Daily reminder: when a backup is pending you will see a Backup now button. Google asks for a quick confirmation about once an hour.'
-                    : 'The daily reminder starts after your first Drive backup.';
+                auto.textContent = 'Nothing is saved automatically. If there is no backup for 3 days, a short warning shows when you open the app. Google asks for a quick confirmation about once an hour.';
             }
             else if (!driveAutoEnabled()) auto.textContent = 'Daily 8 PM auto backup starts after your first Drive backup.';
             else auto.textContent = 'Auto backup: every day at 8 PM (when the app is open). If missed, it runs when you open the app.';
             driveApplyMode();
-            driveRenderBanner();
         }
 
         // ---- show / hide link & key (auto-hides when settings box is closed) ----
@@ -3169,6 +3166,8 @@
             if (det) det.addEventListener('toggle', function () { if (!det.open) driveHideSecrets(); });
             driveRenderStatus('');
             setTimeout(driveAutoTick, 3000);
+            setTimeout(driveWarnIfStale, 1500);
+            document.addEventListener('visibilitychange', function () { if (!document.hidden) driveWarnIfStale(); });
             setInterval(driveAutoTick, 60 * 1000);
             document.addEventListener('visibilitychange', function () { if (!document.hidden) driveAutoTick(); });
             window.addEventListener('online', driveAutoTick);
