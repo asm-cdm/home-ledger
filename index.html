@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ASM Home Ledger</title>
-    <link rel="icon" type="image/png" href="https://asm-cdm.github.io/home-ledger/asm-favicon.png">
-    <link rel="apple-touch-icon" href="https://asm-cdm.github.io/home-ledger/asm-favicon.png">
+    <link rel="icon" type="image/png" href="https://asm-cdm.github.io/home-ledger/favicon-192.png">
+    <link rel="apple-touch-icon" href="https://asm-cdm.github.io/home-ledger/favicon-192.png">
     <link rel="manifest" href="https://asm-cdm.github.io/home-ledger/manifest.json">
     <style>
         :root {
@@ -3793,5 +3793,13 @@
         firstRunInit();
         // ===================== END FIRST RUN MODULE =====================
     </script>
+<script>
+/* PWA: service worker registration */
+if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
+</script>
 </body>
 </html>
