@@ -1,22 +1,16 @@
-/* ASM Home Ledger - Service Worker */
-const CACHE = 'asm-home-ledger-v1';   // change v1 -> v2 when you want to force a refresh
+/* ASM Common Service Worker - same file for ALL apps, no editing needed.
+   Cache name is taken automatically from the app's own folder. */
+const VERSION = 'v1';   // change v1 -> v2 only when you want to force a refresh
+const FOLDER = new URL(self.registration.scope).pathname.split('/').filter(Boolean).pop() || 'root';
+const PREFIX = 'asm-' + FOLDER + '-';
+const CACHE = PREFIX + VERSION;
 
-const CORE = [
-  './',
-  './manifest.json',
-  './favicon-192.png',
-  './favicon-512.png'
-];
-const LIBS = [];
+const CORE = ['./', './manifest.json', './favicon-192.png', './favicon-512.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
     caches.open(CACHE).then(function (c) {
-      var jobs = CORE.map(function (u) { return c.add(u).catch(function () {}); });
-      LIBS.forEach(function (u) {
-        jobs.push(fetch(u, { mode: 'no-cors' }).then(function (r) { return c.put(u, r); }).catch(function () {}));
-      });
-      return Promise.all(jobs);
+      return Promise.all(CORE.map(function (u) { return c.add(u).catch(function () {}); }));
     }).then(function () { return self.skipWaiting(); })
   );
 });
@@ -24,7 +18,7 @@ self.addEventListener('install', function (e) {
 self.addEventListener('activate', function (e) {
   e.waitUntil(
     caches.keys().then(function (keys) {
-      return Promise.all(keys.filter(function (k) { return k.indexOf('asm-home-ledger-') === 0 && k !== CACHE; }).map(function (k) { return caches.delete(k); }));
+      return Promise.all(keys.filter(function (k) { return k.indexOf(PREFIX) === 0 && k !== CACHE; }).map(function (k) { return caches.delete(k); }));
     }).then(function () { return self.clients.claim(); })
   );
 });
@@ -37,7 +31,7 @@ self.addEventListener('fetch', function (e) {
   // Never touch Google login / Drive calls
   if (url.hostname.indexOf('google') !== -1 || url.hostname.indexOf('gstatic') !== -1) return;
 
-  // Pages: network first (so updates arrive), cache as offline fallback
+  // Pages: network first (updates arrive), cache as offline fallback
   if (req.mode === 'navigate') {
     e.respondWith(
       fetch(req).then(function (r) {
@@ -51,7 +45,7 @@ self.addEventListener('fetch', function (e) {
     return;
   }
 
-  // Everything else: cache first, then network
+  // Everything else (icons, PDF libraries): cache first, saved on first use
   e.respondWith(
     caches.match(req).then(function (m) {
       return m || fetch(req).then(function (r) {
