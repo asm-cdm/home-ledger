@@ -501,6 +501,32 @@
             body.print-view #viewSection { display: block !important; }
             body.print-view #pdfViewSection { display: none !important; }
         }
+
+        /* ===== SAVE CONFIRMATION TOAST (isolated module) ===== */
+        .app-toast {
+            position: fixed;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: var(--success);
+            color: #fff;
+            padding: 0.6rem 1.1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            max-width: 90%;
+            text-align: center;
+        }
+        .app-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        @media print { .app-toast { display: none !important; } }
     </style>
 </head>
 <body>
@@ -1210,12 +1236,36 @@
             "July", "August", "September", "October", "November", "December"
         ];
 
-        const defaultExpenseCategories = ["Vegetables", "Milk", "Grocery", "Fuel", "Electricity", "Rent", "Salary"];
+        const defaultExpenseCategories = ["Vegetables", "Milk", "Grocery", "Fuel", "Electricity", "Rent", "Wages"];
         const defaultReceiptCategories = ["UPI Collection", "Cash Collection", "Bank Transfer In", "General Sales", "Consultation Fee"];
         
         let expenseItems = JSON.parse(localStorage.getItem('asm_expenseItems')) || defaultExpenseCategories;
         let receiptItems = JSON.parse(localStorage.getItem('asm_receiptItems')) || defaultReceiptCategories;
         let ledgerEntries = JSON.parse(localStorage.getItem('asm_ledgerEntries')) || [];
+
+        // ===== CATEGORY RENAME: Salary -> Wages (isolated module) =====
+        // Runs on open and after Restore. Renames the old category in the list (no duplicate)
+        // and in any old entries, so nothing is left linked to the old name.
+        function migrateSalaryToWages() {
+            try {
+                const OLD = 'Salary', NEW = 'Wages';
+                let changed = false;
+                const i = expenseItems.indexOf(OLD);
+                if (i !== -1) {
+                    if (expenseItems.indexOf(NEW) === -1) expenseItems[i] = NEW;
+                    else expenseItems.splice(i, 1);
+                    changed = true;
+                }
+                ledgerEntries.forEach(function (e) {
+                    if (e && e.type === 'Expense' && e.item === OLD) { e.item = NEW; changed = true; }
+                });
+                if (changed && !(typeof pastView !== 'undefined' && pastView)) {
+                    localStorage.setItem('asm_expenseItems', JSON.stringify(expenseItems));
+                    localStorage.setItem('asm_ledgerEntries', JSON.stringify(ledgerEntries));
+                }
+            } catch (err) { console.error('Salary->Wages rename skipped:', err); }
+        }
+        migrateSalaryToWages();
         let editingIndex = null;
         let pendingSaveEntry = null;
 
@@ -1854,6 +1904,22 @@
             }
         });
 
+        // ===== SAVE CONFIRMATION TOAST (isolated module) =====
+        let toastTimer = null;
+        function showToast(message) {
+            let t = document.getElementById('appToast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'appToast';
+                t.className = 'app-toast';
+                document.body.appendChild(t);
+            }
+            t.textContent = message;
+            clearTimeout(toastTimer);
+            t.classList.add('show');
+            toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2000);
+        }
+
         function executeSaveEntry(entry) {
             const wasNewEntry = (editingIndex === null);
 
@@ -1871,6 +1937,7 @@
             entryDateInput.valueAsDate = new Date();
             handleTypeChange();
             renderLedger();
+            showToast(wasNewEntry ? '✔ Entry saved successfully' : '✔ Entry updated successfully');
 
             // After adding a new entry (not editing), scroll back to the top of the page,
             // same as when the app first opens.
@@ -2012,6 +2079,7 @@
             saveToStorage();
             closeEditEntryModal();
             renderLedger();
+            showToast('✔ Entry updated successfully');
         }
 
         function renderLedger() {
@@ -2546,6 +2614,7 @@
                         expenseItems = importedData.expenseItems || defaultExpenseCategories;
                         receiptItems = importedData.receiptItems || defaultReceiptCategories;
                         ledgerEntries = importedData.ledgerEntries;
+                        migrateSalaryToWages();
                         
                         saveToStorage();
                         handleTypeChange();
