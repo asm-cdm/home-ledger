@@ -502,6 +502,14 @@
             body.print-view #pdfViewSection { display: none !important; }
         }
 
+        /* ===== MODIFY ROW ACTIONS: clear gap between Edit and Del (isolated) ===== */
+        .modify-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 1.25rem;
+            min-width: 135px;
+        }
+
         /* ===== SAVE CONFIRMATION TOAST (isolated module) ===== */
         .app-toast {
             position: fixed;
@@ -939,7 +947,11 @@
                 <p id="driveStatusLine" style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem;"></p>
                 <p id="driveLastLine" style="font-size: 0.85rem; color: #475569; margin-bottom: 0.25rem;"></p>
                 <p id="driveAutoLine" style="font-size: 0.75rem; color: #64748b; margin-bottom: 0.75rem;"></p>
-                <button type="button" id="driveBackupBtn" class="btn btn-success" onclick="driveBackupNow(false)">☁️ Backup to Google Drive</button>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button type="button" id="driveBackupBtn" class="btn btn-success" style="flex: 1; min-width: 140px;" onclick="driveBackupNow(false)">☁️ Backup to Google Drive</button>
+                    <button type="button" id="pastDriveBtn" class="btn btn-secondary" style="flex: 1; min-width: 140px;" onclick="pastLoadDriveList()">☁️ Restore from Google Drive</button>
+                </div>
+                <div id="pastDriveList" style="margin-top: 0.75rem;"></div>
                 </div>
 
                 <details id="driveSettingsBox" style="margin-top: 1rem;">
@@ -964,11 +976,7 @@
             <!-- PAST YEARS BOX (isolated module) -->
             <div class="tools-box" id="pastYearsBox">
                 <h4 style="margin-bottom: 0.5rem; color: var(--primary);">📂 Past Years &amp; Restore</h4>
-                <p id="pastYearsDesc" style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.75rem;">View a year read-only (reports, PDF, Excel) without touching your data. For a year that is still open, Restore brings it back into the app; other years are not changed.</p>
-                <div id="pastDriveArea" style="display: none; margin-bottom: 0.75rem;">
-                    <button type="button" class="btn btn-secondary" id="pastDriveBtn" onclick="pastLoadDriveList()">☁️ View / Restore from Google Drive</button>
-                    <div id="pastDriveList" style="margin-top: 0.75rem;"></div>
-                </div>
+                <p id="pastYearsDesc" style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.75rem;">View a year read-only (reports, PDF, Excel) without touching your data. To restore from Google Drive, use the Google Drive box above.</p>
                 <button type="button" class="btn btn-secondary" onclick="document.getElementById('pastFileInput').click()">📁 View from file</button>
                 <input type="file" id="pastFileInput" accept=".json,application/json" style="display: none;" onchange="pastOpenFromFile()">
             </div>
@@ -1088,7 +1096,7 @@
             <p style="font-size: 0.9rem; color: #475569; margin-bottom: 1.25rem; line-height: 1.4;" id="warningMessage">
                 Notification message.
             </p>
-            <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="closeWarningModal()">OK</button>
+            <button type="button" id="warningOkBtn" class="btn btn-secondary" style="width: 100%;" onclick="closeWarningModal()">OK</button>
         </div>
     </div>
 
@@ -1330,8 +1338,18 @@
         function showAppWarning(title, message, icon = '⚠️') {
             document.getElementById('warningIcon').textContent = icon;
             document.getElementById('warningTitle').textContent = title;
+            document.getElementById('warningTitle').style.color = (icon === '✅') ? 'var(--success)' : (icon === '⏳') ? 'var(--primary)' : 'var(--danger)';
             document.getElementById('warningMessage').textContent = message;
+            document.getElementById('warningOkBtn').style.display = '';
             document.getElementById('warningModal').classList.add('active');
+        }
+
+        // ===== CENTRE MESSAGE: "please wait" state (isolated module) =====
+        // Same centre popup as showAppWarning, but no OK button while work is running.
+        // The final result (✅ / ❌) is shown with showAppWarning, which brings OK back.
+        function centerBusyShow(title, message) {
+            showAppWarning(title, message, '⏳');
+            document.getElementById('warningOkBtn').style.display = 'none';
         }
 
         function closeWarningModal() {
@@ -2145,8 +2163,10 @@
                         <td style="color: var(--success); font-weight: 600;">${receiptAmt}</td>
                         <td style="color: var(--danger); font-weight: 600;">${expenseAmt}</td>
                         <td class="no-print">
+                            <div class="modify-actions">
                             <button class="btn btn-sm btn-secondary" onclick="openEditEntryModal(${idx})">Edit</button>
                             <button class="btn btn-sm btn-danger" onclick="openDeleteEntryModal(${idx})">Del</button>
+                            </div>
                         </td>
                     `;
                     modifyBody.appendChild(trModify);
@@ -3040,6 +3060,7 @@
 
             driveBusy = true;
             driveSetBusyUI(true);
+            if (!isAuto) centerBusyShow('Backing up', 'Saving your data to Google Drive. Please wait...');
 
             // One backup file per year (home-ledger-2026.json, home-ledger-2027.json ...)
             const groups = driveGroupByYear();
@@ -3068,11 +3089,11 @@
                 driveWrite(DRIVE_STORE.last, String(Date.now()));
                 driveWrite(DRIVE_STORE.auto, '1');
                 driveRenderStatus('');
-                if (!isAuto) showAppWarning('Drive Backup', 'Backup saved to Google Drive (' + saved.join(', ') + ').', '✅');
+                if (!isAuto) showAppWarning('Backup complete', 'Backup saved to Google Drive (' + saved.join(', ') + ').', '✅');
             } else {
                 const msg = (failMsg || 'Backup failed.') + (saved.length ? ' Saved before the error: ' + saved.join(', ') + '.' : '');
                 driveRenderStatus('Backup failed: ' + failMsg);
-                if (!isAuto) showAppWarning('Drive Backup failed', msg);
+                if (!isAuto) showAppWarning('Backup failed', msg, '❌');
             }
         }
 
@@ -3657,7 +3678,7 @@
             if (area) area.style.display = driveIsConnected() ? 'block' : 'none';
             const d = document.getElementById('pastYearsDesc');
             if (d) d.textContent = driveFeatureOn()
-                ? 'View a year read-only (reports, PDF, Excel) without touching your data. For a year that is still open, Restore brings it back into the app; other years are not changed.'
+                ? 'View a year read-only (reports, PDF, Excel) without touching your data. To restore from Google Drive, use the Google Drive box above.'
                 : 'View a year read-only (reports, PDF, Excel) from a year file, without touching your data.';
         }
 
@@ -3665,11 +3686,13 @@
             const btn = document.getElementById('pastDriveBtn');
             const box = document.getElementById('pastDriveList');
             if (!box) return;
-            if (btn) { btn.disabled = true; btn.textContent = 'Loading...'; }
+            if (btn) btn.disabled = true;
+            centerBusyShow('Restore', 'Checking your Google Drive. Please wait...');
             const r = await drivePost({ action: 'list', app: DRIVE_APP_NAME }, 20000);
-            if (btn) { btn.disabled = false; btn.textContent = '☁️ View / Restore from Google Drive'; }
+            if (btn) btn.disabled = false;
+            closeWarningModal();
             if (!(r && r.ok)) {
-                showAppWarning('Google Drive', (r && r.error) ? r.error : 'Could not read the list from Drive.');
+                showAppWarning('Restore failed', (r && r.error) ? r.error : 'Could not read the list from Drive.', '❌');
                 return;
             }
             box.textContent = '';
@@ -3677,7 +3700,7 @@
             if (!years.length) {
                 const p = document.createElement('p');
                 p.style.cssText = 'font-size: 0.85rem; color: #475569;';
-                p.textContent = 'No year files found in your Drive yet.';
+                p.textContent = 'No backup found in your Drive yet.';
                 box.appendChild(p);
                 return;
             }
@@ -3767,7 +3790,7 @@
                     driveWrite(DRIVE_STORE.auto, '1');   // app now matches Drive, so daily auto backup is safe
                     driveRenderStatus('');
                 }
-                showAppWarning('Restore', 'Year ' + year + ' restored (' + n + ' entries). Other years were not changed.', '✅');
+                showAppWarning('Restore complete', 'Year ' + year + ' restored (' + n + ' entries). Other years were not changed.', '✅');
             };
             if (!inApp) { go(); return; }      // nothing in the app for this year, nothing to lose
             yearShowModal('Restore year ' + year + '?',
@@ -3780,17 +3803,19 @@
 
         async function restoreFromDrive(year) {
             if (pastView) return;
+            centerBusyShow('Restoring', 'Reading year ' + year + ' from Google Drive. Please wait...');
             const r = await drivePost({ action: 'get', app: DRIVE_APP_NAME, year: year }, 30000);
             if (!(r && r.ok)) {
-                showAppWarning('Restore', (r && r.error) ? r.error : 'Could not read this year from Drive.');
+                showAppWarning('Restore failed', (r && r.error) ? r.error : 'Could not read this year from Drive.', '❌');
                 return;
             }
             let data = null;
             try { data = JSON.parse(r.data); } catch (e) { data = null; }
             if (!data || !Array.isArray(data.ledgerEntries)) {
-                showAppWarning('Restore', 'This Drive file could not be read.');
+                showAppWarning('Restore failed', 'This Drive file could not be read.', '❌');
                 return;
             }
+            closeWarningModal();
             data.year = data.year || year;
             restoreYearFlow(data, 'drive');
         }
