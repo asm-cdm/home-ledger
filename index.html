@@ -321,12 +321,13 @@
         }
 
 
-        /* ===== VIEW: Records Summary (isolated module) ===== */
-        .vrs-bar { display:flex; flex-wrap:wrap; gap:0.5rem 1.25rem; align-items:center; justify-content:space-between; background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px; padding:0.6rem 0.9rem; margin-top:1rem; cursor:pointer; font-size:0.95rem; }
-        .vrs-bar:hover { background:#e0e7ff; }
-        .vrs-bar .vrs-arrow { margin-left:auto; font-size:0.8rem; color:#475569; }
-        .vrs-list { display:none; margin-top:0.5rem; }
-        .vrs-list.open { display:block; }
+        /* ===== COLLAPSIBLE RECORD LISTS: View + Modify (isolated module) ===== */
+        .rl-bar { display:flex; flex-wrap:wrap; gap:0.5rem 1.25rem; align-items:center; background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px; padding:0.6rem 0.9rem; margin-top:1rem; cursor:pointer; font-size:0.95rem; }
+        .rl-bar:hover { background:#e0e7ff; }
+        .rl-list { display:none; margin-top:0.5rem; }
+        .rl-list.open { display:block; }
+        .rl-close-row { display:flex; justify-content:flex-end; margin-bottom:0.4rem; }
+        @media screen { .screen-hide { display:none !important; } }
 
         .summary-box {
             background: #f1f5f9;
@@ -646,6 +647,12 @@
                 <input type="date" id="modifyDateInput" onchange="renderLedger()">
             </div>
 
+            <!-- MODIFY: Records bar + collapsible list (isolated module) -->
+            <div class="rl-bar" id="modifyRecordsBar" onclick="toggleRecordList('modifyRecordsList')">
+                <span>✏️ <strong>Modify Ledger (<span id="mrsCount">0</span>)</strong></span>
+            </div>
+            <div class="rl-list" id="modifyRecordsList">
+                <div class="rl-close-row"><button type="button" class="btn btn-sm btn-secondary" onclick="toggleRecordList('modifyRecordsList')">✕ Close</button></div>
             <div class="table-container">
                 <table>
                     <thead>
@@ -661,6 +668,7 @@
                     </thead>
                     <tbody id="modifyTableBody"></tbody>
                 </table>
+            </div>
             </div>
         </section>
 
@@ -743,13 +751,13 @@
                 </div>
             </div>
 
-            <!-- VIEW: Records Summary (isolated module) -->
-            <div class="vrs-bar no-print" id="viewRecordsBar" onclick="toggleViewRecordsList()">
-                <span>📋 <strong>Transaction Records (Nos):</strong> <span id="vrsCount">0</span></span>
+            <!-- VIEW: Records bar + collapsible list (isolated module) -->
+            <div class="rl-bar no-print" id="viewRecordsBar" onclick="toggleRecordList('viewRecordsList')">
+                <span>📋 <strong>Transaction Records (<span id="vrsCount">0</span>)</strong></span>
                 <span>📅 <strong>Last Date:</strong> <span id="vrsLastDate">-</span></span>
-                <span class="vrs-arrow" id="vrsArrow">▼ Tap to list</span>
             </div>
-            <div class="vrs-list no-print" id="viewRecordsList">
+            <div class="rl-list no-print" id="viewRecordsList">
+                <div class="rl-close-row"><button type="button" class="btn btn-sm btn-secondary" onclick="toggleRecordList('viewRecordsList')">✕ Close</button></div>
                 <div class="table-container">
                     <table>
                         <thead>
@@ -767,7 +775,7 @@
                 </div>
             </div>
 
-            <div style="margin-top: 1rem;" id="viewTransactionsRecordBlock">
+            <div class="screen-hide" style="margin-top: 1rem;" id="viewTransactionsRecordBlock">
                 <h4 style="margin-bottom: 0.5rem;">Transactions Record</h4>
                 <div class="table-container">
                     <table>
@@ -1548,9 +1556,13 @@
             });
         }
 
-        // ===== VIEW: Records Summary (isolated module) =====
-        // Count + last date for the current View filter (month / range + search); tap to list, view-only.
+        // ===== RECORD LISTS: View + Modify (isolated module) =====
+        // Bar shows count (+ last date in View); tap to open the list, Close to fold it back.
         function vrsDMY(d) { const p = (d || '').split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : (d || ''); }
+
+        function toggleRecordList(id) {
+            document.getElementById(id).classList.toggle('open');
+        }
 
         function getViewRecordsFiltered() {
             const m = document.getElementById('viewMonthSelect').value;
@@ -1584,10 +1596,13 @@
             });
         }
 
-        function toggleViewRecordsList() {
-            const box = document.getElementById('viewRecordsList');
-            const open = box.classList.toggle('open');
-            document.getElementById('vrsArrow').textContent = open ? '▲ Tap to hide' : '▼ Tap to list';
+        function renderModifyRecordsSummary() {
+            const m = document.getElementById('modifyMonthSelect').value;
+            const y = document.getElementById('modifyYearInput').value.trim();
+            const d = document.getElementById('modifyDateInput').value;
+            const my = (y && m) ? `${y}-${m}` : '';
+            const n = ledgerEntries.filter(e => d ? (e.date === d) : (!my || e.date.startsWith(my))).length;
+            document.getElementById('mrsCount').textContent = n;
         }
 
         function refreshViewModule() {
@@ -2311,6 +2326,7 @@
             renderBreakdowns('pdfCategoryExpensesList', pdfExpCatTotals);
             highlightHighestCategory('pdfCategoryExpensesList', pdfExpCatTotals);
 
+            renderModifyRecordsSummary();
             refreshViewModule();
             renderYearlyReport();
         }
