@@ -320,6 +320,14 @@
             font-weight: 600;
         }
 
+
+        /* ===== VIEW: Records Summary (isolated module) ===== */
+        .vrs-bar { display:flex; flex-wrap:wrap; gap:0.5rem 1.25rem; align-items:center; justify-content:space-between; background:#eef2ff; border:1px solid #c7d2fe; border-radius:8px; padding:0.6rem 0.9rem; margin-top:1rem; cursor:pointer; font-size:0.95rem; }
+        .vrs-bar:hover { background:#e0e7ff; }
+        .vrs-bar .vrs-arrow { margin-left:auto; font-size:0.8rem; color:#475569; }
+        .vrs-list { display:none; margin-top:0.5rem; }
+        .vrs-list.open { display:block; }
+
         .summary-box {
             background: #f1f5f9;
             border-radius: 8px;
@@ -732,6 +740,30 @@
                 <div class="cat-breakdown-box">
                     <div class="cat-breakdown-title">Consolidated Expenses by Category</div>
                     <div id="categoryExpensesList"></div>
+                </div>
+            </div>
+
+            <!-- VIEW: Records Summary (isolated module) -->
+            <div class="vrs-bar no-print" id="viewRecordsBar" onclick="toggleViewRecordsList()">
+                <span>📋 <strong>Transaction Records (Nos):</strong> <span id="vrsCount">0</span></span>
+                <span>📅 <strong>Last Date:</strong> <span id="vrsLastDate">-</span></span>
+                <span class="vrs-arrow" id="vrsArrow">▼ Tap to list</span>
+            </div>
+            <div class="vrs-list no-print" id="viewRecordsList">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Head / Item</th>
+                                <th>Mode</th>
+                                <th>Receipt (₹)</th>
+                                <th>Expense (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vrsBody"></tbody>
+                    </table>
                 </div>
             </div>
 
@@ -1516,6 +1548,48 @@
             });
         }
 
+        // ===== VIEW: Records Summary (isolated module) =====
+        // Count + last date for the current View filter (month / range + search); tap to list, view-only.
+        function vrsDMY(d) { const p = (d || '').split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : (d || ''); }
+
+        function getViewRecordsFiltered() {
+            const m = document.getElementById('viewMonthSelect').value;
+            const y = document.getElementById('viewYearInput').value.trim();
+            const { from, to } = getViewRange();
+            const my = (y && m) ? `${y}-${m}` : '';
+            const q = document.getElementById('viewSearchInput').value.trim().toLowerCase();
+            return ledgerEntries
+                .filter(e => (from && to) ? (e.date >= from && e.date <= to) : (!my || e.date.startsWith(my)))
+                .filter(e => !q || String(e.item).toLowerCase().includes(q))
+                .sort((a, b) => a.date.localeCompare(b.date));
+        }
+
+        function renderViewRecordsSummary() {
+            const list = getViewRecordsFiltered();
+            document.getElementById('vrsCount').textContent = list.length;
+            document.getElementById('vrsLastDate').textContent = list.length ? vrsDMY(list[list.length - 1].date) : '-';
+            const body = document.getElementById('vrsBody');
+            body.innerHTML = '';
+            list.forEach(e => {
+                const isExp = e.type === 'Expense';
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${vrsDMY(e.date)}</td>
+                    <td class="${isExp ? 'tag-expense' : 'tag-receipt'}">${e.type}</td>
+                    <td>${e.item}</td>
+                    <td>${e.mode}</td>
+                    <td style="color: var(--success); font-weight: 600;">${!isExp ? '₹' + e.amount.toFixed(2) : '-'}</td>
+                    <td style="color: var(--danger); font-weight: 600;">${isExp ? '₹' + e.amount.toFixed(2) : '-'}</td>`;
+                body.appendChild(tr);
+            });
+        }
+
+        function toggleViewRecordsList() {
+            const box = document.getElementById('viewRecordsList');
+            const open = box.classList.toggle('open');
+            document.getElementById('vrsArrow').textContent = open ? '▲ Tap to hide' : '▼ Tap to list';
+        }
+
         function refreshViewModule() {
             const isConsolidated = (viewStatementType === 'consolidated');
             const searchText = document.getElementById('viewSearchInput').value.trim().toLowerCase();
@@ -1557,6 +1631,7 @@
             renderBreakdowns('modeExpensesList', modeTotals);
             renderBreakdowns('categoryExpensesList', catTotals);
             highlightHighestCategory('categoryExpensesList', catTotals);
+            renderViewRecordsSummary();
         }
 
         function highlightHighestCategory(containerId, catTotals) {
